@@ -17,8 +17,8 @@ from app.models import Folder, MailAccount, Message
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"], dependencies=[Depends(current_user)])
 
-COLORS = {"gmail": "#D93025", "icloud": "#3A9BDC", "imap": "#B88A00"}
-LABELS = {"gmail": "Gmail", "icloud": "iCloud", "imap": "IMAP"}
+COLORS = {"gmail": "#D93025", "icloud": "#3A9BDC", "imap": "#B88A00", "outlook": "#0F6CBD"}
+LABELS = {"gmail": "Gmail", "icloud": "iCloud", "imap": "IMAP", "outlook": "Outlook"}
 
 
 class AccountOut(BaseModel):
@@ -31,6 +31,7 @@ class AccountOut(BaseModel):
     status_message: str | None
     last_sync_at: str | None
     color: str | None
+    auth_type: str  # password | oauth (les jetons ne sont jamais exposés)
 
     @classmethod
     def of(cls, a: MailAccount) -> "AccountOut":
@@ -38,6 +39,7 @@ class AccountOut(BaseModel):
             id=a.id, provider=a.provider, label=a.label, email=a.email, enabled=a.enabled,
             status=a.status, status_message=a.status_message,
             last_sync_at=a.last_sync_at.isoformat() if a.last_sync_at else None, color=a.color,
+            auth_type=a.auth_type or "password",
         )
 
 
@@ -157,6 +159,8 @@ async def patch_account(
 ) -> AccountOut:
     acc = _get(db, account_id)
     if body.password is not None:
+        if acc.auth_type == "oauth":
+            raise HTTPException(400, "Cette boîte est connectée sans mot de passe : utilise « Se reconnecter »")
         password = _clean_password(acc.provider, body.password)
         await _check(acc.imap_host, acc.imap_port, acc.username, password)
         acc.secret_enc = encrypt(password)

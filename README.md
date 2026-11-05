@@ -6,7 +6,7 @@ PWA auto-hébergée qui trie ta boîte mail avec Claude (CLI Claude Code en mode
 
 - Docker + Docker Compose (image `linux/amd64`)
 - Un abonnement Claude (Pro/Max) pour le tri
-- Un mot de passe d'application pour chaque boîte (Gmail, iCloud…)
+- Pour chaque boîte : « Se connecter avec Google / Microsoft » (voir plus bas), ou un mot de passe d'application (Gmail, iCloud) ou le mot de passe IMAP (autres fournisseurs)
 
 ## Configuration
 
@@ -42,6 +42,34 @@ Si `./data` existe déjà avec un autre propriétaire : `sudo chown -R "$(id -u)
 5. Pour un tri complet immédiat : bouton Actions › « Lancer une analyse ».
 
 Logs : `docker compose logs -f`. Arrêt : `docker compose down`.
+
+## Connexion Google
+
+Facultatif : sans ces réglages, Gmail reste disponible avec un mot de passe d'application. Avec eux, l'ajout d'une boîte Gmail se fait par la page de connexion officielle de Google (comme Mail sur iPhone), et l'accès se renouvelle tout seul.
+
+1. Ouvre <https://console.cloud.google.com/>, crée un projet (ex. « Mail Pilot »).
+2. « API et services › Bibliothèque » : active **Gmail API**.
+3. « API et services › Écran de consentement OAuth » (Google Auth Platform) : type **Externe**, nom de l'appli, ton adresse comme contact. Dans « Accès aux données », ajoute le champ d'application `https://mail.google.com/` (plus `openid` et `email`). Ajoute ton adresse dans « Utilisateurs test » pendant les essais.
+4. « Identifiants › Créer des identifiants › ID client OAuth » : type **Application Web**. URI de redirection autorisés :
+   - `http://localhost:8000/api/oauth/google/callback` (essais en local)
+   - puis `https://mail.exemple.fr/api/oauth/google/callback` (ton domaine)
+5. Copie l'ID client et le code secret dans `.env` : `GOOGLE_CLIENT_ID=…` et `GOOGLE_CLIENT_SECRET=…`, puis `docker compose up -d`.
+6. **Passe l'appli en Production** (« Audience › Publier l'application ») : en mode « Test », Google révoque l'accès au bout de 7 jours. Sans validation Google (inutile pour un usage personnel), la page de connexion affiche « application non validée » : choisis « Paramètres avancés › Accéder à Mail Pilot ».
+
+L'adresse de retour est toujours calculée depuis `MP_PUBLIC_ORIGIN` : elle doit correspondre exactement à l'une des URI déclarées (`http://localhost:8000` en local, ton domaine ensuite).
+
+## Connexion Microsoft
+
+Obligatoire pour Outlook / Hotmail / Live : Microsoft n'accepte plus les mots de passe en IMAP. Le fournisseur « Outlook » n'apparaît dans l'appli qu'une fois ces réglages faits.
+
+1. Ouvre <https://entra.microsoft.com/> (ou le portail Azure) › « Inscriptions d'applications › Nouvelle inscription ».
+2. Nom « Mail Pilot » ; types de comptes : **Comptes dans un annuaire organisationnel et comptes Microsoft personnels** ; URI de redirection : plateforme **Web**, `http://localhost:8000/api/oauth/microsoft/callback`.
+3. « Authentification » : ajoute aussi `https://mail.exemple.fr/api/oauth/microsoft/callback` quand le domaine est prêt.
+4. « Certificats et secrets › Nouveau secret client » : copie la **valeur** (affichée une seule fois ; note sa date d'expiration, à renouveler avant).
+5. (Facultatif) « Autorisations de l'API » : ajoute la permission déléguée `IMAP.AccessAsUser.All` (Office 365 Exchange Online), plus `offline_access`, `openid`, `email`. Sinon le consentement est demandé à la première connexion.
+6. Dans `.env` : `MS_CLIENT_ID=<ID d'application (client)>`, `MS_CLIENT_SECRET=<valeur du secret>`, `MS_TENANT=common` (ou `consumers` pour les seuls comptes personnels), puis `docker compose up -d`.
+
+Si une boîte affiche « Reconnexion à Google/Microsoft nécessaire » (accès révoqué, mot de passe changé, secret expiré), touche « Se reconnecter » dans Réglages › Boîtes mail.
 
 ## Reverse proxy (domaine)
 

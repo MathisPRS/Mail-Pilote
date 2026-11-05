@@ -33,7 +33,7 @@ class Session(Base):
 class MailAccount(Base):
     __tablename__ = "mail_accounts"
     id: Mapped[int] = mapped_column(primary_key=True)
-    provider: Mapped[str]  # gmail | icloud | imap
+    provider: Mapped[str]  # gmail | icloud | imap | outlook
     label: Mapped[str]
     email: Mapped[str]
     imap_host: Mapped[str]
@@ -45,6 +45,23 @@ class MailAccount(Base):
     status_message: Mapped[str | None]
     last_sync_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     color: Mapped[str | None]
+    # « password » : secret_enc ; « oauth » : jetons chiffrés (jamais renvoyés par l'API)
+    auth_type: Mapped[str] = mapped_column(default="password", server_default="password")
+    oauth_refresh_enc: Mapped[str | None]
+    oauth_access_enc: Mapped[str | None]
+    oauth_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+
+class OAuthState(Base):
+    """Connexion OAuth en cours : usage unique, 10 min. Seule l'empreinte du state est stockée."""
+
+    __tablename__ = "oauth_states"
+    state_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    provider: Mapped[str]  # google | microsoft
+    account_id: Mapped[int | None]  # reconnexion d'une boîte existante
+    verifier_enc: Mapped[str]
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
 
 class Folder(Base):

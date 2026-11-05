@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     claude_bin: str = "claude"
     claude_oauth_token: str | None = Field(default=None, validation_alias="CLAUDE_CODE_OAUTH_TOKEN")
     tz: str = "Europe/Paris"
+    # connexion « Se connecter avec Google / Microsoft » (facultatif)
+    google_client_id: str = Field(default="", validation_alias="GOOGLE_CLIENT_ID")
+    google_client_secret: str = Field(default="", validation_alias="GOOGLE_CLIENT_SECRET")
+    ms_client_id: str = Field(default="", validation_alias="MS_CLIENT_ID")
+    ms_client_secret: str = Field(default="", validation_alias="MS_CLIENT_SECRET")
+    ms_tenant: str = Field(default="common", validation_alias="MS_TENANT")
 
 
 @lru_cache

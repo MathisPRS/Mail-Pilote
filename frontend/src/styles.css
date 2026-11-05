@@ -272,6 +272,8 @@ button, input { font: inherit; color: inherit; }
 .settings-note { margin: 0; padding: 14px; font-size: 14px; color: var(--text-secondary); }
 .settings-inline-note { margin: 0; padding: 10px 14px; font-size: 13px; background: #fff7ed; color: #9a3412; }
 .settings-form { display: flex; flex-direction: column; gap: 14px; }
+.alt-auth > summary { min-height: var(--touch); display: flex; align-items: center; color: var(--accent); font-size: 15px; cursor: pointer; }
+.alt-auth[open] > summary { margin-bottom: 8px; }
 .field-row { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
 .field-row input, .inline-add input, .sheet-form textarea, .sheet-form .field input { min-height: var(--touch); padding: 0 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-size: 16px; }
 .sheet-form textarea { padding: 10px 14px; resize: vertical; font-family: ui-monospace, monospace; font-size: 14px; }

@@ -6,7 +6,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.mail.folders import detect_role
-from app.mail.imap import MailAuthError, MailConnectError, MailError, MailSession, open_session
+from app.mail.imap import (
+    MailAuthError, MailConnectError, MailError, MailSession, OAuthReconnectError, open_session,
+)
 from app.models import Folder, MailAccount, Message, utcnow
 
 log = logging.getLogger(__name__)
@@ -128,6 +130,8 @@ def sync_account(db: Session, account: MailAccount, session: MailSession) -> lis
 
 
 def _error_message(exc: Exception) -> str:
+    if isinstance(exc, OAuthReconnectError):
+        return str(exc)  # « Reconnexion à Google nécessaire »
     if isinstance(exc, MailAuthError):
         return "Identifiants refusés par le serveur"
     if isinstance(exc, MailConnectError):

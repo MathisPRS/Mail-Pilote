@@ -31,6 +31,10 @@ class MailConnectError(MailError):
     pass
 
 
+class OAuthReconnectError(MailAuthError):
+    """Jeton OAuth refusé : l'utilisateur doit se reconnecter (message affichable tel quel)."""
+
+
 @dataclass
 class RawHeader:
     uid: int
@@ -352,7 +356,11 @@ class ImapClientSession:
             pass
 
 
-def _connect(host: str, port: int, username: str, password: str) -> ImapClientSession:
+def _connect(
+    host: str, port: int, username: str, password: str | None = None,
+    access_token: str | None = None, auth_error: MailAuthError | None = None,
+) -> ImapClientSession:
+    """Connexion TLS puis LOGIN (mot de passe) ou AUTHENTICATE XOAUTH2 (jeton OAuth)."""
     from imapclient import IMAPClient
     from imapclient.exceptions import LoginError
 
@@ -361,10 +369,13 @@ def _connect(host: str, port: int, username: str, password: str) -> ImapClientSe
     except (OSError, socket.timeout, ssl.SSLError) as e:
         raise MailConnectError(f"Connexion à {host}:{port} impossible : {e}") from e
     try:
-        client.login(username, password)
+        if access_token is not None:
+            client.oauth2_login(username, access_token)
+        else:
+            client.login(username, password)
     except LoginError as e:
         _quiet_logout(client)
-        raise MailAuthError("Identifiants refusés par le serveur.") from e
+        raise (auth_error or MailAuthError("Identifiants refusés par le serveur.")) from e
     except (OSError, socket.timeout, ssl.SSLError) as e:
         _quiet_logout(client)
         raise MailConnectError(f"Connexion à {host}:{port} interrompue : {e}") from e
@@ -384,6 +395,14 @@ def _quiet_logout(client) -> None:
 def open_session(account) -> MailSession:
     from app.crypto import decrypt
 
+    if getattr(account, "auth_type", "password") == "oauth":
+        from app.mail import oauth
+
+        token = oauth.access_token_for(account)  # rafraîchi si besoin
+        return _connect(
+            account.imap_host, account.imap_port, account.username, access_token=token,
+            auth_error=oauth.reconnect_error(account),
+        )
     return _connect(account.imap_host, account.imap_port, account.username, decrypt(account.secret_enc))
 
 
@@ -392,3 +411,10 @@ def test_connection(host: str, port: int, username: str, password: str) -> None:
 
 
 test_connection.__test__ = False  # not a pytest test
+
+
+def test_oauth_connection(host: str, port: int, username: str, access_token: str) -> None:
+    _connect(host, port, username, access_token=access_token).close()
+
+
+test_oauth_connection.__test__ = False

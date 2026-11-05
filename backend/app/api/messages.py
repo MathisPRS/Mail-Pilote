@@ -151,7 +151,7 @@ async def read_message(message_id: int, db: Session = Depends(get_db)) -> dict:
         db.commit()
     html = sanitize_html(body.html) if body.html else None
     text = _cap_text(body.text, TEXT_CAP_WITH_HTML if html else MAX_BODY) if body.text else None
-    open_url = {"gmail": "googlegmail://", "icloud": "message://"}.get(account.provider)
+    open_url = {"gmail": "googlegmail://", "icloud": "message://", "outlook": "ms-outlook://"}.get(account.provider)
     return {
         **message_dict(m, account.color),
         "body_html": html,

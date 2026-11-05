@@ -1,16 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { ApiError, apiGet, apiSend } from "../api";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ApiError, apiGet, apiSend, startOAuth } from "../api";
 import Icon from "../components/Icon";
 import Sheet from "../components/Sheet";
 import Toggle from "../components/Toggle";
 import { useToast } from "../components/Toast";
 import { formatClock } from "../format";
+import { nav } from "../navigation";
 import type { Account, AccountPatch } from "../types";
 import SettingsLayout from "./SettingsLayout";
 
 type Panel = { kind: "password" | "delete"; account: Account } | null;
+
+/** Retour de Google / Microsoft : /settings/boxes?oauth=error&reason=… */
+const OAUTH_ERRORS: Record<string, string> = {
+  state: "La demande de connexion a expiré. Recommence depuis « Ajouter une boîte mail ».",
+  denied: "Connexion annulée : l'accès n'a pas été autorisé.",
+  exchange: "Le fournisseur a refusé la connexion. Réessaie dans un instant.",
+  imap: "Connexion réussie, mais le serveur IMAP a refusé l'accès. Vérifie que l'IMAP est activé pour cette boîte.",
+  duplicate: "Cette boîte est déjà configurée.",
+  mismatch: "Ce n'est pas le même compte : reconnecte-toi avec l'adresse de cette boîte.",
+};
+
+const oauthProviderOf = (a: Account) => (a.provider === "outlook" ? "microsoft" : "google");
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.detail : "Une erreur est survenue");
 
@@ -27,6 +40,30 @@ export default function Boxes() {
   const [panel, setPanel] = useState<Panel>(null);
   const accounts = useQuery({ queryKey: ["accounts"], queryFn: () => apiGet<Account[]>("/api/accounts") });
   const refresh = () => client.invalidateQueries({ queryKey: ["accounts"] });
+  const [params, setParams] = useSearchParams();
+  const [oauthError, setOauthError] = useState<string | null>(null);
+  const handled = useRef(false);
+
+  useEffect(() => {
+    const result = params.get("oauth");
+    if (!result || handled.current) return;
+    handled.current = true;
+    if (result === "ok") {
+      toast("Boîte ajoutée");
+      void client.invalidateQueries({ queryKey: ["accounts"] });
+      void client.invalidateQueries({ queryKey: ["boxes"] });
+      void client.invalidateQueries({ queryKey: ["runs"] }); // synchro + analyse lancées côté serveur
+    } else {
+      setOauthError(OAUTH_ERRORS[params.get("reason") ?? ""] ?? "La connexion a échoué. Réessaie.");
+    }
+    setParams({}, { replace: true });
+  }, [params, setParams, client, toast]);
+
+  const reconnect = useMutation({
+    mutationFn: (a: Account) => startOAuth(oauthProviderOf(a), a.id),
+    onSuccess: ({ url }) => nav.assign(url),
+    onError: (e) => toast(msg(e)),
+  });
 
   const patch = useMutation({
     mutationFn: ({ id, body }: { id: number; body: AccountPatch }) => apiSend<Account>("PATCH", `/api/accounts/${id}`, body),
@@ -36,6 +73,7 @@ export default function Boxes() {
 
   return (
     <SettingsLayout title="Boîtes mail" backLabel="Profil" backTo="/settings">
+      {oauthError && <p className="form-error" role="alert">{oauthError}</p>}
       {accounts.isError && <p className="form-error" role="alert">Impossible de charger les boîtes.</p>}
       {accounts.data?.map((a) => {
         const st = statusOf(a);
@@ -53,7 +91,12 @@ export default function Boxes() {
               <span className="dot" style={{ background: st.ok ? "#15803D" : "#C2410C" }} />
               {st.text}
             </span>
-            {!st.ok && (
+            {!st.ok && a.auth_type === "oauth" && (
+              <button type="button" className="btn" disabled={reconnect.isPending} onClick={() => reconnect.mutate(a)}>
+                {a.provider === "outlook" ? "Se reconnecter avec Microsoft" : "Se reconnecter avec Google"}
+              </button>
+            )}
+            {!st.ok && a.auth_type !== "oauth" && (
               <button type="button" className="btn" onClick={() => setPanel({ kind: "password", account: a })}>Mettre à jour le mot de passe</button>
             )}
             <button type="button" className="link-danger" onClick={() => setPanel({ kind: "delete", account: a })}>Supprimer cette boîte</button>

@@ -75,12 +75,32 @@ def dispose() -> None:
         SessionLocal.configure(bind=None)
 
 
+# colonnes ajoutées après coup : create_all ne modifie pas une table existante
+ADDED_COLUMNS: dict[str, dict[str, str]] = {
+    "mail_accounts": {
+        "auth_type": "VARCHAR NOT NULL DEFAULT 'password'",
+        "oauth_refresh_enc": "VARCHAR",
+        "oauth_access_enc": "VARCHAR",
+        "oauth_expires_at": "DATETIME",
+    },
+}
+
+
+def _add_missing_columns(conn) -> None:
+    for table, columns in ADDED_COLUMNS.items():
+        existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+        for name, ddl in columns.items():
+            if name not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+
+
 def init_db() -> None:
     from app import models  # noqa: F401  (enregistre les tables)
 
     engine = get_engine()
     Base.metadata.create_all(engine)
     with engine.begin() as conn:
+        _add_missing_columns(conn)
         # appli mono-utilisateur : un second compte est refusé par la base elle-même
         conn.exec_driver_sql(
             "CREATE TRIGGER IF NOT EXISTS users_single_row BEFORE INSERT ON users "

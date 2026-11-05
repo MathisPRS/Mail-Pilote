@@ -7,11 +7,14 @@ export interface AuthStatus { setup_done: boolean; authenticated: boolean; setup
 export interface SessionUser { username: string; display_name: string }
 
 // Accounts (Task 5)
-export type Provider = "gmail" | "icloud" | "imap";
+export type Provider = "gmail" | "icloud" | "imap" | "outlook";
 export interface Account {
   id: number; provider: Provider; label: string; email: string; enabled: boolean;
   status: string; status_message: string | null; last_sync_at: string | null; color: string;
+  auth_type?: "password" | "oauth";
 }
+export interface OAuthProviders { google: boolean; microsoft: boolean }
+export type OAuthProvider = keyof OAuthProviders;
 export interface AccountCreate {
   provider: Provider; email: string; password: string;
   imap_host?: string; imap_port?: number; username?: string; label?: string;

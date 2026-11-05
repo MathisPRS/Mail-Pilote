@@ -63,3 +63,7 @@ export const authLogin = (b: { username: string; password: string }) =>
   apiSend<SessionUser>("POST", "/api/auth/login", b);
 export const authLogout = () => apiSend<void>("POST", "/api/auth/logout");
 export const getMe = () => apiGet<SessionUser>("/api/auth/me");
+
+/** Démarre « Se connecter avec Google / Microsoft » : renvoie l'URL de la page de connexion. */
+export const startOAuth = (provider: "google" | "microsoft", accountId?: number) =>
+  apiSend<{ url: string }>("POST", `/api/oauth/${provider}/start`, accountId === undefined ? {} : { account_id: accountId });

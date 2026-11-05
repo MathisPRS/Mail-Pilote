@@ -1,3 +1,4 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.config import get_settings
 from app.csrf import CSRFMiddleware
 from app.db import init_db
 from app.mail.accounts_routes import router as accounts_router
+from app.mail.oauth_routes import router as oauth_router
 from app.notify.routes import router as notify_router
 from app.notify.webpush import ensure_vapid_keys
 
@@ -36,6 +38,24 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
     "Strict-Transport-Security": "max-age=31536000",
 }
+
+
+class _RedactOAuthQuery(logging.Filter):
+    """Journal d'accès uvicorn : retire la query des retours OAuth (code et state à usage unique)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str):
+            path = args[2]
+            if path.startswith("/api/oauth/") and "?" in path:
+                record.args = (*args[:2], path.split("?", 1)[0] + "?…", *args[3:])
+        return True
+
+
+def _install_log_filters() -> None:
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, _RedactOAuthQuery) for f in access.filters):
+        access.addFilter(_RedactOAuthQuery())
 
 
 @asynccontextmanager
@@ -79,6 +99,7 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
 
 def create_app() -> FastAPI:
     # pas de /docs, /redoc ni /openapi.json : toute l'API est authentifiée
+    _install_log_filters()
     app = FastAPI(title="Mail Pilot", lifespan=_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(CSRFMiddleware)
 
@@ -105,6 +126,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(accounts_router)
+    app.include_router(oauth_router)
     app.include_router(notify_router)
     app.include_router(claude_router)
     for r in (boxes.router, messages.router, actions.router, runs.router, settings_routes.router):
