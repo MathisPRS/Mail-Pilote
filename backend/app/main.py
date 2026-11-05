@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 
+from app.analysis.jobs import close_interrupted_runs
 from app.analysis.scheduler import start_scheduler, stop_scheduler
 from app.api import actions, boxes, messages, runs, settings_routes
 from app.auth.routes import router as auth_router
@@ -41,6 +42,7 @@ async def _lifespan(app: FastAPI):
     if len(get_settings().secret_key) < 32:
         raise RuntimeError(SECRET_ERROR)
     init_db()
+    close_interrupted_runs()  # aucun run n'est en cours au démarrage
     ensure_vapid_keys()
     start_scheduler(app)
     try:

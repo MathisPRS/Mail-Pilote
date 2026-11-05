@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from app import db as db_module
@@ -202,6 +202,17 @@ async def _run(db: Session, kind: str, trigger: str) -> AnalysisRun:
             db.commit()
             _current_run_id = None
         return run
+
+
+def close_interrupted_runs() -> int:
+    """Au démarrage : un run resté « running » (arrêt brutal) est clos en erreur."""
+    with db_module.SessionLocal() as s:
+        res = s.execute(
+            update(AnalysisRun).where(AnalysisRun.status == "running")
+            .values(status="error", error="interrompue (redémarrage)", finished_at=utcnow())
+        )
+        s.commit()
+        return res.rowcount
 
 
 async def run_light(db: Session, trigger: str = "schedule") -> AnalysisRun:

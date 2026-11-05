@@ -91,3 +91,20 @@ def test_openapi_and_docs_not_exposed():
     for path in ("/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect"):
         r = c.get(path)
         assert "openapi" not in r.text.lower() and "swagger" not in r.text.lower(), path
+
+
+def test_runs_left_running_are_closed_at_startup(db):
+    """Un arrêt brutal laisse un run « running » : au démarrage il passe en erreur (sinon l'analyse
+    manuelle renverrait ce run fantôme pour toujours)."""
+    from app.models import AnalysisRun
+
+    stale = AnalysisRun(kind="light", trigger="manual", status="running")
+    done = AnalysisRun(kind="full", trigger="schedule", status="ok")
+    db.add_all([stale, done])
+    db.commit()
+    with TestClient(create_app()):
+        pass
+    db.expire_all()
+    assert (stale.status, stale.error) == ("error", "interrompue (redémarrage)")
+    assert stale.finished_at is not None
+    assert done.status == "ok" and done.error is None
