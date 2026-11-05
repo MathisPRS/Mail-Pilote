@@ -101,6 +101,7 @@ describe("Connexion Google / Microsoft", () => {
     ["denied", /annulée/],
     ["state", /expiré/],
     ["exchange", /refusé la connexion/],
+    ["scope", /coche la case/],
   ])("return_error_%s_shows_message", async (reason, text) => {
     mockApi({ "GET /api/accounts": [] });
     renderWithProviders(<App />, `/settings/boxes?oauth=error&reason=${reason}`);

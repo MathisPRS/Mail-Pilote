@@ -113,6 +113,10 @@ async def callback(
         log.warning("échange de jetons %s refusé (%s)", p.display, e.code)
         return _redirect("exchange")
 
+    if oauth.mail_scope_missing(p, tokens):
+        log.warning("connexion %s : accès à la messagerie non accordé", p.display)
+        return _redirect("scope")
+
     acc = None
     if row.account_id is not None:
         acc = db.get(MailAccount, row.account_id)
@@ -130,9 +134,11 @@ async def callback(
     host, port = PRESETS[p.account_provider]
     try:
         await run_in_threadpool(test_oauth_connection, host, port, email, tokens.access_token)
-    except MailError:
+    except MailError as e:
+        cause = e.__cause__ or e
         log.warning(
-            "connexion IMAP %s refusée (%s)", p.display, "reconnexion" if acc is not None else "nouvelle boîte"
+            "connexion IMAP %s refusée (%s) : %s", p.display,
+            "reconnexion" if acc is not None else "nouvelle boîte", str(cause)[:200],
         )
         return _redirect("imap")
 

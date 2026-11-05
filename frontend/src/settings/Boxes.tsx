@@ -19,6 +19,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   denied: "Connexion annulée : l'accès n'a pas été autorisé.",
   exchange: "Le fournisseur a refusé la connexion. Réessaie dans un instant.",
   imap: "Connexion réussie, mais le serveur IMAP a refusé l'accès. Vérifie que l'IMAP est activé pour cette boîte.",
+  scope: "Google n'a pas donné l'accès à Gmail : recommence et coche la case « Lire, rédiger, envoyer et supprimer… » sur l'écran Google.",
   duplicate: "Cette boîte est déjà configurée.",
   mismatch: "Ce n'est pas le même compte : reconnecte-toi avec l'adresse de cette boîte.",
 };

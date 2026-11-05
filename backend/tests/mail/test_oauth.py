@@ -120,9 +120,10 @@ OK = "/settings/boxes?oauth=ok"
 RECONNECTED = "/settings/boxes?oauth=reconnected"
 
 
-def g_tokens(tokens, email="Me@Gmail.com", access="ya29.ACCESS-1", refresh="1//REFRESH-1", **claims):
+def g_tokens(tokens, email="Me@Gmail.com", access="ya29.ACCESS-1", refresh="1//REFRESH-1", scope=None, **claims):
+    extra = {"scope": scope} if scope is not None else {}
     tokens.push(access_token=access, refresh_token=refresh, expires_in=3599, token_type="Bearer",
-                id_token=id_token(**google_claims(email, **claims)))
+                id_token=id_token(**google_claims(email, **claims)), **extra)
 
 
 def connect_google(c, tokens, **kw):
@@ -548,3 +549,35 @@ def test_microsoft_refresh_sends_scope(db, oauth_env, tokens, imap_client):
     assert form["grant_type"] == "refresh_token" and form["refresh_token"] == "OLD-REFRESH"
     assert form["scope"] == "openid email offline_access https://outlook.office.com/IMAP.AccessAsUser.All"
     imap_client.oauth2_login.assert_called_once_with("me@x.com", "NEW-MS")
+
+
+# ---------- droits accordés (écran de consentement Google à cases) ----------
+
+def test_callback_google_mail_scope_not_granted(auth_client, oauth_env, tokens, imap_checks, started, db):
+    _, q = start(auth_client)
+    g_tokens(tokens, scope="openid https://www.googleapis.com/auth/userinfo.email")
+    r = callback(auth_client, code="auth-code-1", state=q["state"])
+    assert reason(r) == ERR + "scope"
+    assert imap_checks == [] and db.query(MailAccount).count() == 0 and started == []
+
+
+def test_callback_google_mail_scope_granted(auth_client, oauth_env, tokens, imap_checks, started, db):
+    _, q = start(auth_client)
+    g_tokens(tokens, scope="https://mail.google.com/ openid https://www.googleapis.com/auth/userinfo.email")
+    assert reason(callback(auth_client, code="auth-code-1", state=q["state"])) == OK
+
+
+def test_callback_imap_refusal_detail_logged(auth_client, oauth_env, tokens, monkeypatch, started, caplog):
+    from app.mail.imap import MailAuthError
+
+    def refuse(*a):
+        try:
+            raise ValueError("[AUTHENTICATIONFAILED] Invalid credentials (Failure)")
+        except ValueError as e:
+            raise MailAuthError("no") from e
+
+    monkeypatch.setattr(oauth_routes, "test_oauth_connection", refuse)
+    with caplog.at_level("WARNING"):
+        assert reason(connect_google(auth_client, tokens)) == ERR + "imap"
+    assert "AUTHENTICATIONFAILED" in caplog.text
+    assert "ya29.ACCESS-1" not in caplog.text

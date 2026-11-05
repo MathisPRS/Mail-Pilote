@@ -133,6 +133,7 @@ class Tokens:
     refresh_token: str | None
     expires_at: datetime
     id_token: str | None
+    scope: str | None = None  # droits réellement accordés (Google : l'utilisateur peut décocher)
 
 
 def _token_request(p: Provider, data: dict) -> Tokens:
@@ -163,7 +164,18 @@ def _token_request(p: Provider, data: dict) -> Tokens:
         refresh_token=refresh if isinstance(refresh, str) and refresh else None,
         expires_at=datetime.now(timezone.utc) + timedelta(seconds=max(expires_in, 0)),
         id_token=body.get("id_token") if isinstance(body.get("id_token"), str) else None,
+        scope=body.get("scope") if isinstance(body.get("scope"), str) else None,
     )
+
+
+GOOGLE_MAIL_SCOPE = "https://mail.google.com/"
+
+
+def mail_scope_missing(p: Provider, tokens: Tokens) -> bool:
+    """Google laisse décocher l'accès Gmail sur l'écran de consentement : sans lui, IMAP refuse."""
+    if p.name != "google" or tokens.scope is None:
+        return False
+    return GOOGLE_MAIL_SCOPE not in tokens.scope.split()
 
 
 def exchange_code(p: Provider, code: str, verifier: str) -> Tokens:
