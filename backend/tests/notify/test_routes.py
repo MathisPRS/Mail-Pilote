@@ -19,7 +19,7 @@ def test_vapid_public_key_stable(auth_client, settings):
 
 
 def test_subscribe_upserts(auth_client, db):
-    body = {"endpoint": "https://push/x", "keys": {"p256dh": "k1", "auth": "a1"}}
+    body = {"endpoint": "https://fcm.googleapis.com/x", "keys": {"p256dh": "k1", "auth": "a1"}}
     assert auth_client.post("/api/push/subscribe", json=body).status_code == 204
     body["keys"]["auth"] = "a2"
     assert auth_client.post("/api/push/subscribe", json=body).status_code == 204
@@ -62,7 +62,7 @@ def test_test_gotify_ok_and_failure(auth_client, db, monkeypatch):
 
 def test_test_webpush_ok(auth_client, db, monkeypatch):
     set_alerts(db, AlertSettings(webpush=True))
-    db.add(PushSubscription(endpoint="https://push/1", p256dh="k", auth="a"))
+    db.add(PushSubscription(endpoint="https://fcm.googleapis.com/1", p256dh="k", auth="a"))
     db.commit()
     seen = []
     monkeypatch.setattr(webpush, "send_webpush", lambda sub, payload: seen.append(payload))
@@ -78,8 +78,18 @@ def test_test_webpush_ok(auth_client, db, monkeypatch):
         "https://127.0.0.1/x",
         "https://localhost/x",
         "https://169.254.169.254/latest",
-        "https://10.0.0.5/x",
         "https://[::1]/x",
+        "https://2130706433/",
+        "https://0x7f000001/",
+        "https://127.1/",
+        "https://0177.0.0.1/",
+        "https://0/",
+        "https://127.0.0.1.nip.io/x",
+        "https://evil.com/web.push.apple.com",
+        "https://web.push.apple.com.evil.com/x",
+        "https://evilpush.apple.com.evil.io/x",
+        "https://u@web.push.apple.com/x",
+        "https://web.push.apple.com:8443/x",
         "https://fcm.googleapis.com/" + "a" * 2100,
     ],
 )
@@ -93,6 +103,14 @@ def test_subscribe_rejects_oversized_keys(auth_client):
     assert auth_client.post("/api/push/subscribe", json=body).status_code == 422
 
 
-def test_subscribe_accepts_apple_endpoint(auth_client):
-    body = {"endpoint": "https://web.push.apple.com/QWxs", "keys": {"p256dh": "k", "auth": "a"}}
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://web.push.apple.com/QGxIj8",
+        "HTTPS://fcm.googleapis.com/fcm/send/abc",
+        "https://updates.push.services.mozilla.com:443/wpush/v2/x",
+    ],
+)
+def test_subscribe_accepts_known_push_services(auth_client, endpoint):
+    body = {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}
     assert auth_client.post("/api/push/subscribe", json=body).status_code == 204

@@ -1,6 +1,4 @@
-import ipaddress
 from typing import Literal
-from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.concurrency import run_in_threadpool
@@ -28,18 +26,9 @@ class SubscribeIn(BaseModel):
 
     @field_validator("endpoint")
     @classmethod
-    def _public_https(cls, v: str) -> str:
-        # le serveur POSTe vers cet endpoint : refuser tout ce qui vise le réseau interne (SSRF)
-        if not v.startswith("https://"):
-            raise ValueError("endpoint https requis")
-        host = (urlsplit(v).hostname or "").lower()
-        if not host or host == "localhost" or host.endswith(".localhost"):
-            raise ValueError("endpoint non autorisé")
-        try:
-            ip = ipaddress.ip_address(host)
-        except ValueError:
-            return v  # nom d'hôte public
-        if not ip.is_global:
+    def _allowed(cls, v: str) -> str:
+        # le serveur POSTe vers cet endpoint : liste blanche des services push (anti-SSRF)
+        if not webpush.is_allowed_push_endpoint(v):
             raise ValueError("endpoint non autorisé")
         return v
 

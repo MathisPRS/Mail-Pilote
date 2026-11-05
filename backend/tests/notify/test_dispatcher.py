@@ -173,12 +173,12 @@ async def test_all_channels_failing_leaves_unset_for_retry(db, folder, monkeypat
 
 async def test_webpush_channel(db, folder, sent):
     set_alerts(db, AlertSettings(webpush=True, gotify=False))
-    db.add(PushSubscription(endpoint="https://push/1", p256dh="k", auth="a"))
+    db.add(PushSubscription(endpoint="https://fcm.googleapis.com/1", p256dh="k", auth="a"))
     db.commit()
     m = mk(db, folder, category="action")
     assert await dispatch_alerts(db, now=NOON) == 1
     endpoint, payload = sent["webpush"][0]
-    assert endpoint == "https://push/1"
+    assert endpoint == "https://fcm.googleapis.com/1"
     assert payload == {"title": "À traiter · Alice", "body": "Parce que", "url": f"/mail/{m.id}"}
 
 
@@ -206,9 +206,20 @@ async def test_expired_push_subscription_removed(db, monkeypatch):
     monkeypatch.setattr(webpush, "webpush", fake)
     monkeypatch.setattr(webpush, "ensure_vapid_keys", lambda: "pub")
     monkeypatch.setattr(webpush, "_vapid_private_path", lambda: "/nonexistent")
-    sub = PushSubscription(endpoint="https://push/old", p256dh="k", auth="a")
+    sub = PushSubscription(endpoint="https://fcm.googleapis.com/old", p256dh="k", auth="a")
     db.add(sub)
     db.commit()
     set_alerts(db, AlertSettings(webpush=True, gotify=False))
     await dispatcher.send_to_channels(db, get_alerts(db), "t", "b", "/", 5)
+    assert db.query(PushSubscription).count() == 0
+
+
+async def test_stored_disallowed_endpoint_skipped_and_deleted(db, monkeypatch):
+    called = []
+    monkeypatch.setattr(webpush, "webpush", lambda **kw: called.append(kw))
+    db.add(PushSubscription(endpoint="http://169.254.169.254/x", p256dh="k", auth="a"))
+    db.commit()
+    set_alerts(db, AlertSettings(webpush=True, gotify=False))
+    await dispatcher.send_to_channels(db, get_alerts(db), "t", "b", "/", 5)
+    assert called == []
     assert db.query(PushSubscription).count() == 0

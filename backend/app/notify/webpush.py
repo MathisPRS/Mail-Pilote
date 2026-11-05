@@ -2,6 +2,7 @@ import base64
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives import serialization
 from py_vapid import Vapid01
@@ -13,6 +14,30 @@ from app.models import PushSubscription
 
 class SubscriptionGone(Exception):
     """L'abonnement a expiré côté service push (404/410) : à supprimer."""
+
+
+ALLOWED_PUSH_HOSTS = (
+    "push.apple.com",
+    "fcm.googleapis.com",
+    "android.googleapis.com",
+    "push.services.mozilla.com",
+    "notify.windows.com",
+)
+
+
+def is_allowed_push_endpoint(url: str) -> bool:
+    """Liste blanche anti-SSRF : https, sans identifiants, port 443, hôte d'un service push connu."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    if parts.scheme.lower() != "https" or parts.username is not None or parts.password is not None:
+        return False
+    if port not in (None, 443):
+        return False
+    host = (parts.hostname or "").lower()
+    return any(host == d or host.endswith("." + d) for d in ALLOWED_PUSH_HOSTS)
 
 
 def _vapid_dir() -> Path:
@@ -56,6 +81,8 @@ def _sub() -> str:
 
 def send_webpush(sub: PushSubscription, payload: dict) -> None:
     """Envoi bloquant (à appeler dans un thread). Lève SubscriptionGone sur 404/410."""
+    if not is_allowed_push_endpoint(sub.endpoint):
+        raise SubscriptionGone  # abonnement hors liste blanche : supprimé, aucun appel réseau
     ensure_vapid_keys()
     try:
         webpush(
