@@ -32,8 +32,13 @@ _engine: Engine | None = None
 SessionLocal: sessionmaker[Session] = sessionmaker(autoflush=False, expire_on_commit=False)
 
 
-def make_engine(url: str) -> Engine:
-    engine = create_engine(url, connect_args={"check_same_thread": False})
+# Attente maximale d'un verrou d'écriture SQLite (s) : la synchro et les actions écrivent par
+# transactions courtes, une écriture concurrente patiente au lieu d'échouer.
+LOCK_TIMEOUT = 30
+
+
+def make_engine(url: str, timeout: float = LOCK_TIMEOUT) -> Engine:
+    engine = create_engine(url, connect_args={"check_same_thread": False, "timeout": timeout})
 
     @event.listens_for(engine, "connect")
     def _pragmas(dbapi_conn, _record):

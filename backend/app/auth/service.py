@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session as DbSession
 
 from app.models import Session, User, utcnow
@@ -130,7 +131,12 @@ def resolve_session(db: DbSession, token: str | None) -> tuple[User, Session] | 
     if now - session.last_seen_at > timedelta(minutes=1):
         session.last_seen_at = now
         session.expires_at = now + SESSION_TTL
-        db.commit()
+        try:
+            db.commit()
+        except OperationalError:
+            # base momentanément verrouillée : prolonger la session est accessoire, la requête
+            # continue (la prochaine prolongera) plutôt que de renvoyer l'utilisateur au login
+            db.rollback()  # les objets expirés se rechargent à la demande
     return user, session
 
 

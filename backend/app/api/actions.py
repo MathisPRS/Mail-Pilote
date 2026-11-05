@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from typing import Literal
 
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.api import common
@@ -22,6 +24,13 @@ NO_FOLDER = {
     "trash": "Ce compte n'a pas de dossier Corbeille",
 }
 REFUSED = "Le serveur mail a refusé l'opération"
+DB_BUSY_REVERTED = "Base de données occupée : l'action a été annulée, réessaie dans un instant"
+DB_BUSY_APPLIED = (
+    "Base de données occupée : l'action a été faite sur le serveur mail mais n'a pas pu être "
+    "enregistrée ; elle apparaîtra à la prochaine synchronisation (sans annulation possible)"
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ActionIn(BaseModel):
@@ -74,6 +83,39 @@ async def _execute(db: Session, ops_by_account: dict[int, list[dict]]) -> dict[i
         snap = common.snapshot(db.get(MailAccount, account_id))
         results.update(await run_in_threadpool(_provider_ops, snap, ops))
     return results
+
+
+def _inverse(op: dict, res: dict, before: bool | None) -> dict:
+    """Opération qui défait `op` chez le fournisseur (`before` : valeur seen/flag d'avant)."""
+    if op["kind"] == "move":
+        uid = res.get("new_uid") or -1  # UID inconnu : retrouvé par Message-ID
+        return {**op, "path": op["dest"], "dest": op["path"], "uid": uid}
+    return {**op, "value": before}
+
+
+async def _commit_or_revert(db: Session, done: list[tuple[int, dict, dict, bool | None]]) -> None:
+    """Commit ; si la base refuse (verrou), défait chez le fournisseur ce qui vient d'être fait.
+
+    done : [(account_id, op, résultat, valeur d'avant)] des opérations réussies chez le fournisseur.
+    Sans cela un mail déplacé côté serveur n'aurait ni ligne locale à jour, ni ActionLog, ni annulation.
+    """
+    try:
+        db.commit()
+        return
+    except OperationalError:
+        db.rollback()
+        logger.error("commit refusé après %d opération(s) chez le fournisseur : retour arrière", len(done))
+    ops_by_account: dict[int, list[dict]] = {}
+    for account_id, op, res, before in done:
+        ops_by_account.setdefault(account_id, []).append(_inverse(op, res, before))
+    try:
+        results = await _execute(db, ops_by_account)
+    except Exception:  # noqa: BLE001
+        results = {}
+    reverted = all(results.get(op["id"], {}).get("ok") for ops in ops_by_account.values() for op in ops)
+    if not reverted:
+        logger.error("retour arrière incomplet chez le fournisseur : la synchro rattrapera l'état")
+    raise HTTPException(503, DB_BUSY_REVERTED if reverted else DB_BUSY_APPLIED)
 
 
 def _apply_move(m: Message, dest: Folder, new_uid: int | None, db: Session) -> None:
@@ -169,7 +211,11 @@ async def run_batch(
         else:
             m.category, m.priority, m.flagged = "important", True, True
         db.add(log)
-    db.commit()
+    ops = {op["id"]: (acc, op) for acc, lst in ops_by_account.items() for op in lst}
+    await _commit_or_revert(db, [
+        (ops[m.id][0], ops[m.id][1], results[m.id], prev[m.id].get("seen", prev[m.id].get("flagged")))
+        for m in ok
+    ])
     return {"batch_id": batch_id, "count": len(ok)}
 
 
@@ -236,12 +282,15 @@ async def undo(batch_id: str, db: Session = Depends(get_db)) -> dict:
     ops_by_account: dict[int, list[dict]] = {}
     for _, m, _, op in items:
         ops_by_account.setdefault(m.account_id, []).append(op)
+    before = {m.id: (m.seen if op["kind"] == "seen" else m.flagged) for _, m, _, op in items}
     results = await _execute(db, ops_by_account) if ops_by_account else {}
     count, now = 0, utcnow()
+    done = []
     for log, m, prev, op in items:
         res = results.get(m.id)
         if not res or not res["ok"]:
             continue
+        done.append((m.account_id, op, res, before[m.id]))
         if op["kind"] == "move":
             _apply_move(m, db.get(Folder, log.from_folder_id), res["new_uid"], db)
         elif op["kind"] == "seen":
@@ -257,5 +306,5 @@ async def undo(batch_id: str, db: Session = Depends(get_db)) -> dict:
     for log in pending:  # mails disparus : rien à restaurer, le lot est clos
         if log.undone_at is None and all(log is not i[0] for i in items):
             log.undone_at = now
-    db.commit()
+    await _commit_or_revert(db, done)
     return {"batch_id": batch_id, "count": count}

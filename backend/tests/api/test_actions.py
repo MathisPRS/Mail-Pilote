@@ -144,3 +144,47 @@ def test_undo_when_mail_vanished_409_and_not_marked(auth_client, world):
     assert r.status_code == 409 and r.json()["detail"] == "Ce mail ne peut plus être restauré"
     world.db.expire_all()
     assert all(l.undone_at is None for l in world.db.scalars(select(ActionLog)))
+
+
+async def test_action_commit_locked_reverts_provider_move_and_reports(world, settings):
+    """Le déplacement a réussi chez le fournisseur mais la base est verrouillée : on annule chez le
+    fournisseur et on renvoie une erreur claire (jamais un mail déplacé sans ActionLog)."""
+    import pytest
+    from fastapi import HTTPException
+    from sqlalchemy.orm import Session as DbSession
+
+    from app.api.actions import run_batch
+    from app.db import make_engine
+    from test_db_lock import hold_write_lock
+
+    m = world.add(world.g)
+    fake = world.fakes[world.g.id]
+    with DbSession(make_engine(f"sqlite:///{settings.data_dir / 'test.db'}", timeout=0.2)) as s:
+        msg = s.get(Message, m.id)
+        blocker = None
+        real_execute = __import__("app.api.actions", fromlist=["_execute"])._execute
+
+        async def execute_then_lock(db, ops):
+            nonlocal blocker
+            res = await real_execute(db, ops)
+            if blocker is None:
+                blocker = hold_write_lock(settings)  # une synchro écrit pendant ce temps
+            return res
+
+        import app.api.actions as actions_mod
+        actions_mod._execute, saved = execute_then_lock, actions_mod._execute
+        try:
+            with pytest.raises(HTTPException) as exc:
+                await run_batch(s, [msg], "trash")
+        finally:
+            actions_mod._execute = saved
+            if blocker is not None:
+                blocker.rollback()
+                blocker.close()
+    assert exc.value.status_code == 503
+    assert "annulée" in exc.value.detail
+    assert m.uid not in fake.messages["Trash"].values() and len(fake.messages["INBOX"]) == 1
+    assert [mv[:3] for mv in fake.moves] == [("INBOX", m.uid, "Trash"), ("Trash", fake.moves[0][3], "INBOX")]
+    world.db.expire_all()
+    assert world.db.get(Message, m.id).folder_id == world.folders[(world.g.id, "INBOX")].id
+    assert world.db.scalars(select(ActionLog)).first() is None

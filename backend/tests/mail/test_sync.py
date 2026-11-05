@@ -160,3 +160,58 @@ def test_sync_reconciles_placeholder_row_without_duplicate(db):
     rows = msgs(db, a, "[Gmail]/Corbeille")
     assert len(rows) == 1 and rows[0].id == m.id and rows[0].uid > 0
     assert rows[0].uid in s.messages["[Gmail]/Corbeille"]
+
+
+class LockCheckingSession(FakeMailSession):
+    """Session factice qui vérifie, à chaque appel réseau, qu'aucune écriture SQLite n'est en cours."""
+
+    def __init__(self, db, db_path, *a, **kw):
+        super().__init__(*a, **kw)
+        self._db, self._db_path, self.violations = db, db_path, []
+
+    def _hit(self, name):
+        import sqlite3
+
+        if self._db.new or self._db.dirty or self._db.deleted:
+            self.violations.append(f"{name}: écritures en attente")
+        conn = sqlite3.connect(self._db_path, timeout=0)
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("ROLLBACK")
+        except sqlite3.OperationalError:
+            self.violations.append(f"{name}: verrou d'écriture tenu")
+        finally:
+            conn.close()
+        super()._hit(name)
+
+
+def test_no_write_lock_held_during_network_calls(db, settings):
+    a = make_account(db)
+    s = LockCheckingSession(db, str(settings.data_dir / "test.db"), folders=FOLDERS, uidvalidity=1)
+    s.add_message("INBOX", subject="1", sent_at=ago(1))
+    s.add_message("[Gmail]/Corbeille", subject="t", sent_at=ago(1))
+    sync_all(db, open_session=lambda acc: s)
+    s.add_message("INBOX", subject="2", sent_at=ago(1))
+    s.set_uidvalidity("[Gmail]/Corbeille", 9)  # suppression locale du dossier : après le réseau
+    sync_all(db, open_session=lambda acc: s)
+    assert s.calls["fetch_flags"] >= 1
+    assert s.violations == []
+    assert [m.subject for m in msgs(db, a)] == ["1", "2"]
+
+
+def test_commits_per_folder(db):
+    """Un dossier en échec n'annule pas ceux déjà synchronisés (commit par dossier)."""
+    a = make_account(db)
+
+    class FailingTrash(FakeMailSession):
+        def fetch_headers(self, path, since_uid, since=None):
+            if path == "[Gmail]/Corbeille":
+                raise MailAuthError("coupure")
+            return super().fetch_headers(path, since_uid, since)
+
+    s = FailingTrash(folders=FOLDERS)
+    s.add_message("INBOX", subject="kept", sent_at=ago(1))
+    sync_all(db, open_session=lambda acc: s)
+    db.expire_all()
+    assert [m.subject for m in msgs(db, a)] == ["kept"]
+    assert a.status == "error"

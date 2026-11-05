@@ -22,6 +22,7 @@ def _utc(dt):
 
 
 def _sync_folders(db: Session, account: MailAccount, session: MailSession) -> list[Folder]:
+    db.commit()  # aucune transaction ouverte pendant l'appel réseau
     wanted: dict[str, str] = {}
     for path, flags in session.list_folders():
         role = detect_role(path, flags)
@@ -42,21 +43,36 @@ def _sync_folders(db: Session, account: MailAccount, session: MailSession) -> li
             existing[path] = f
         else:
             f.role = role
-    db.flush()
+    db.commit()
     return [existing[p] for p in wanted]
 
 
 def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: MailSession) -> list[int]:
-    uidvalidity = session.select(folder.path)
-    if folder.uidvalidity is not None and folder.uidvalidity != uidvalidity:
-        db.execute(delete(Message).where(Message.folder_id == folder.id))
-        folder.last_uid = 0
-    folder.uidvalidity = uidvalidity
+    """Tous les appels IMAP d'abord, puis les écritures en une transaction courte (commit par dossier).
 
-    first = not folder.last_uid
+    Une transaction d'écriture ouverte pendant le réseau bloquerait toute autre écriture SQLite
+    (session glissante, actions…) jusqu'à « database is locked ».
+    """
+    # 1) lectures locales, puis réseau sans aucune transaction ouverte
+    known_validity, last_uid = folder.uidvalidity, folder.last_uid or 0
+    recent_uids = [u for u in db.scalars(
+        select(Message.uid).where(Message.folder_id == folder.id)
+        .order_by(Message.uid.desc()).limit(REFRESH_LAST)
+    ) if u > 0]
+    db.commit()
+    uidvalidity = session.select(folder.path)
+    reset = known_validity is not None and known_validity != uidvalidity
+    if reset:  # UID réattribués : tout le dossier est rechargé
+        last_uid, recent_uids = 0, []
+    first = not last_uid
     since = (utcnow() - timedelta(days=FIRST_SYNC_DAYS)) if first else None
-    headers = session.fetch_headers(folder.path, folder.last_uid or 0,
-                                    since.date() if since else None)
+    headers = session.fetch_headers(folder.path, last_uid, since.date() if since else None)
+    flags = session.fetch_flags(folder.path, recent_uids) if recent_uids else {}
+
+    # 2) écritures
+    if reset:
+        db.execute(delete(Message).where(Message.folder_id == folder.id))
+    folder.uidvalidity = uidvalidity
     known = set(db.scalars(select(Message.uid).where(Message.folder_id == folder.id)))
     placeholders = {  # lignes déplacées dont l'UID est encore inconnu (uid < 0)
         m.message_id_header: m for m in db.scalars(
@@ -64,7 +80,7 @@ def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: Mai
                                   Message.message_id_header.is_not(None)))
     }
     new_rows: list[Message] = []
-    max_uid = folder.last_uid or 0
+    max_uid = last_uid
     for h in headers:
         max_uid = max(max_uid, h.uid)
         if h.uid in known:
@@ -86,26 +102,22 @@ def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: Mai
     folder.last_uid = max_uid
 
     # rafraîchit seen/flagged des 500 derniers messages déjà connus
-    recent = list(db.scalars(
-        select(Message).where(Message.folder_id == folder.id)
-        .order_by(Message.uid.desc()).limit(REFRESH_LAST)
-    ))
-    if recent:
-        recent = [m for m in recent if m.uid > 0]
-        flags = session.fetch_flags(folder.path, [m.uid for m in recent]) if recent else {}
-        for m in recent:
-            if m.uid in flags:
-                m.seen, m.flagged = flags[m.uid]
-    db.flush()
+    if flags:
+        for m in db.scalars(select(Message).where(Message.folder_id == folder.id,
+                                                  Message.uid.in_(list(flags)))):
+            m.seen, m.flagged = flags[m.uid]
+    db.commit()
     return [m.id for m in new_rows] if folder.role == "inbox" else []
 
 
 def sync_account(db: Session, account: MailAccount, session: MailSession) -> list[int]:
-    """Synchronise un compte ; retourne les ids des nouveaux messages de la boîte de réception."""
+    """Synchronise un compte ; retourne les ids des nouveaux messages de la boîte de réception.
+
+    Commit après chaque dossier : un dossier en échec ne remet pas en cause les précédents.
+    """
     new_ids: list[int] = []
     for folder in _sync_folders(db, account, session):
         new_ids += _sync_folder(db, account, folder, session)
-    db.flush()
     return new_ids
 
 
