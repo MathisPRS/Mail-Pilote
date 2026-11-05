@@ -1,0 +1,8 @@
+data/
+.env
+node_modules/
+frontend/dist/
+__pycache__/
+.venv/
+.superpowers/
+*.pyc
