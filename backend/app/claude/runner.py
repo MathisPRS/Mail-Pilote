@@ -5,6 +5,12 @@ import os
 import jsonschema
 
 from app.config import get_settings
+from app.crypto import decrypt
+
+TOKEN_FILE = "claude-token.enc"
+
+# Métadonnées du dernier appel réussi (ex. credential_expires_at rapporté par la CLI).
+last_meta: dict = {}
 
 
 class ClaudeError(Exception):
@@ -28,7 +34,14 @@ _RATE_HINTS = ("rate", "limit", "429", "usage")
 
 
 def _resolve_token() -> str | None:
-    return get_settings().claude_oauth_token
+    settings = get_settings()
+    f = settings.data_dir / TOKEN_FILE
+    if f.exists():
+        try:
+            return decrypt(f.read_text().strip())
+        except Exception:  # noqa: BLE001 - fichier illisible : repli sur l'env, sans fuite
+            pass
+    return settings.claude_oauth_token
 
 
 def _build_env(home: str) -> dict[str, str]:
@@ -95,6 +108,10 @@ async def run_claude(
         if proc.returncode != 0:
             raise ClaudeError(err.decode(errors="replace").strip()[:500] or f"code {proc.returncode}")
         raise ClaudeBadOutput("sortie non JSON")
+
+    exp = data.get("credential_expires_at")
+    if isinstance(exp, str):
+        last_meta["credential_expires_at"] = exp
 
     if data.get("is_error"):
         _raise_for_error_text(str(data.get("result", "")))
