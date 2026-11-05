@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.auth.routes import router as auth_router
 from app.csrf import CSRFMiddleware
 from app.mail.accounts_routes import router as accounts_router
+from app.notify.routes import router as notify_router
 
 
 def create_app() -> FastAPI:
@@ -21,6 +22,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(accounts_router)
+    app.include_router(notify_router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
