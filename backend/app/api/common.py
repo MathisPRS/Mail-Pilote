@@ -72,7 +72,7 @@ def message_dict(m: Message, color: str | None) -> dict:
         "from_addr": m.from_addr,
         "subject": m.subject,
         "preview": m.preview,
-        "sent_at": iso(m.sent_at),
+        "sent_at": iso(m.sent_at or m.created_at),  # date d'envoi inconnue : date de réception
         "seen": m.seen,
         "category": m.category,
         "priority": m.priority,

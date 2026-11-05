@@ -27,7 +27,7 @@ export interface BoxSummary {
 export interface Folder { key: string; role: FolderRole | "custom"; label: string; unread: number }
 export interface Message {
   id: number; account_id: number; account_color: string; from_name: string; from_addr: string;
-  subject: string; preview: string; sent_at: string; seen: boolean;
+  subject: string; preview: string; sent_at: string | null; seen: boolean;
   category: Category | null; priority: boolean; reason: string | null; summary: string | null;
 }
 export interface MessagePage { items: Message[]; next_before_id: number | null }

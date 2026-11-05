@@ -78,3 +78,13 @@ def test_reader_provider_error_502(auth_client, world):
     r = auth_client.get(f"/api/messages/{m.id}")
     assert r.status_code == 502 and r.json()["detail"] == "Impossible de récupérer ce mail"
     assert auth_client.get("/api/messages/9999").status_code == 404
+
+
+def test_missing_sent_at_falls_back_to_created_at(auth_client, world):
+    m = world.add(world.g)
+    m.sent_at = None
+    world.db.commit()
+    world.db.refresh(m)
+    expected = m.created_at.isoformat()
+    assert auth_client.get("/api/messages").json()["items"][0]["sent_at"] == expected
+    assert auth_client.get(f"/api/messages/{m.id}").json()["sent_at"] == expected

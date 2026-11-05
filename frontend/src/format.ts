@@ -7,14 +7,18 @@ export function parseDate(iso: string): Date {
   return new Date(/(Z|[+-]\d\d:?\d\d)$/.test(iso) ? iso : `${iso}Z`);
 }
 
-export function formatClock(iso: string): string {
+const valid = (iso: string | null | undefined): iso is string => !!iso && !Number.isNaN(parseDate(iso).getTime());
+
+export function formatClock(iso: string | null | undefined): string {
+  if (!valid(iso)) return "";
   return parseDate(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 }
 
 const dayKey = (d: Date) => d.toLocaleDateString("fr-CA", { timeZone: TZ });
 
 /** Date d'une ligne : heure aujourd'hui, « Hier », jour de semaine (< 7 j), sinon jj/mm. */
-export function formatRowDate(iso: string, now: Date = new Date()): string {
+export function formatRowDate(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!valid(iso)) return "";
   const d = parseDate(iso);
   const days = Math.round((Date.parse(dayKey(now)) - Date.parse(dayKey(d))) / 86_400_000);
   if (days <= 0) return formatClock(iso);
@@ -26,7 +30,8 @@ export function formatRowDate(iso: string, now: Date = new Date()): string {
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: TZ });
 }
 
-export function formatFull(iso: string): string {
+export function formatFull(iso: string | null | undefined): string {
+  if (!valid(iso)) return "";
   return parseDate(iso).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: TZ });
 }
 
