@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.analysis.scheduler import start_scheduler, stop_scheduler
+from app.api import actions, boxes, messages, runs, settings_routes
 from app.auth.routes import router as auth_router
 from app.claude.routes import router as claude_router
 from app.csrf import CSRFMiddleware
@@ -37,6 +38,8 @@ def create_app() -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(notify_router)
     app.include_router(claude_router)
+    for r in (boxes.router, messages.router, actions.router, runs.router, settings_routes.router):
+        app.include_router(r)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
