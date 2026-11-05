@@ -107,6 +107,28 @@ def test_status_route(auth_client):
     assert r.status_code == 200 and r.json()["connected"] is False
 
 
+def test_status_includes_warn_days_default(auth_client):
+    assert auth_client.get("/api/claude/status").json()["warn_days"] == 7
+
+
+def test_put_settings_persists_warn_days(auth_client, db):
+    r = auth_client.put("/api/claude/settings", json={"warn_days": 14})
+    assert r.status_code == 200 and r.json() == {"warn_days": 14}
+    assert auth_client.get("/api/claude/status").json()["warn_days"] == 14
+    assert get_claude(db).warn_days == 14
+
+
+@pytest.mark.parametrize("value", [0, 31, "x"])
+def test_put_settings_validates(auth_client, value):
+    assert auth_client.put("/api/claude/settings", json={"warn_days": value}).status_code == 422
+
+
+def test_put_settings_requires_auth_and_csrf(client, auth_client):
+    assert auth_client.put("/api/claude/settings", json={"warn_days": 3}, headers={"X-Requested-With": ""}).status_code == 403
+    client.cookies.clear()
+    assert client.put("/api/claude/settings", json={"warn_days": 3}).status_code in (401, 403)
+
+
 def _fake_run(calls, fail=None, on_call=None):
     async def run(prompt, *, system, schema, model, timeout_s=300, token=None, meta=None):
         calls.append(model)

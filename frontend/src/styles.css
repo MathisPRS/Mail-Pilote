@@ -311,3 +311,4 @@ button, input { font: inherit; color: inherit; }
 .segmented button[aria-pressed="true"] { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
 .quiet-times input { min-height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; }
 .settings-body .btn { width: 100%; }
+.select { min-height: var(--touch); padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-size: 16px; }

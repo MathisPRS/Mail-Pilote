@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.auth.deps import current_user
@@ -32,6 +32,10 @@ class TokenIn(BaseModel):
         if not v or len(v) > 4096:
             raise ValueError("jeton invalide")
         return v
+
+
+class ClaudeSettingsIn(BaseModel):
+    warn_days: int = Field(ge=1, le=30)
 
 
 def _detail(exc: Exception) -> str:
@@ -68,7 +72,14 @@ def _write_private(path, content: str) -> None:
 
 @router.get("/status")
 def get_status(db: Session = Depends(get_db)) -> dict:
-    return status.claude_status(db, datetime.now(timezone.utc))
+    return {**status.claude_status(db, datetime.now(timezone.utc)), "warn_days": get_claude(db).warn_days}
+
+
+@router.put("/settings")
+def put_settings(body: ClaudeSettingsIn, db: Session = Depends(get_db)) -> dict:
+    cfg = get_claude(db)
+    cfg.warn_days = body.warn_days
+    return {"warn_days": set_claude(db, cfg).warn_days}
 
 
 @router.post("/check")

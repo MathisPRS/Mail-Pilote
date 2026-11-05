@@ -71,6 +71,6 @@ export type AlertChannel = "webpush" | "gotify";
 // Claude (Task 10)
 export interface ClaudeStatus {
   connected: boolean; last_ok_at: string | null; last_error: string | null;
-  token_set_at: string | null; expires_at: string | null; days_left: number | null;
+  token_set_at: string | null; expires_at: string | null; days_left: number | null; warn_days: number;
 }
 export interface OkDetail { ok: boolean; detail: string }

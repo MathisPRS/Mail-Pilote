@@ -1,10 +1,10 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { mockApi, setViewportWide } from "../test-fixtures";
 import { jsonResponse, renderWithProviders } from "../test-utils";
 
-const status = { connected: true, last_ok_at: "2026-11-05T07:02:00Z", last_error: null, token_set_at: "2026-01-01T00:00:00Z", expires_at: "2027-09-13T00:00:00Z", days_left: 312 };
+const status = { connected: true, last_ok_at: "2026-11-05T07:02:00Z", last_error: null, token_set_at: "2026-01-01T00:00:00Z", expires_at: "2027-09-13T00:00:00Z", days_left: 312, warn_days: 7 };
 
 describe("Page Claude", () => {
   beforeEach(() => setViewportWide(false));
@@ -43,5 +43,20 @@ describe("Page Claude", () => {
     await user.click(screen.getByRole("button", { name: "Tester et enregistrer" }));
     expect(await screen.findByText("Jeton refusé par Claude")).toBeInTheDocument();
     expect(screen.queryByDisplayValue("bad")).not.toBeInTheDocument();
+  });
+
+  it("claudepage_warn_days_select_saves", async () => {
+    const calls = mockApi({
+      "GET /api/claude/status": status,
+      "PUT /api/claude/settings": (c) => jsonResponse(c.body),
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<App />, "/settings/claude");
+    const select = await screen.findByLabelText("Me prévenir avant l'expiration");
+    expect(select).toHaveValue("7");
+    await user.selectOptions(select, "14");
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    expect(calls.find((c) => c.method === "PUT")!.body).toEqual({ warn_days: 14 });
+    expect(await screen.findByText("Réglages enregistrés")).toBeInTheDocument();
   });
 });

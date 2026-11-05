@@ -52,13 +52,19 @@ describe("Alertes", () => {
     });
     const user = userEvent.setup();
     renderWithProviders(<App />, "/settings/alerts");
-    await user.click(await screen.findByRole("switch", { name: "Notification iPhone" }));
-    await waitFor(() => expect(calls.some((c) => c.path === "/api/push/subscribe")).toBe(true));
+    await user.click(await screen.findByRole("switch", { name: "Gotify" })); // modification locale non enregistrée
+    await user.click(screen.getByRole("switch", { name: "Notification iPhone" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
     expect(subscribe).toHaveBeenCalledWith(expect.objectContaining({ userVisibleOnly: true }));
     expect(calls.find((c) => c.path === "/api/push/subscribe")!.body).toEqual({ endpoint: "https://push.example/abc", keys: { p256dh: "P", auth: "A" } });
+    const { gotify_token_set: _s, ...serverValues } = alerts;
+    expect(calls.find((c) => c.method === "PUT")!.body).toEqual({ ...serverValues, webpush: true });
+    expect(await screen.findByText("Réglages enregistrés")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Notification iPhone" })).toHaveAttribute("aria-checked", "true");
-    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
-    expect((calls.find((c) => c.method === "PUT")!.body as { webpush: boolean }).webpush).toBe(true);
+    expect(screen.getByRole("switch", { name: "Gotify" })).toHaveAttribute("aria-checked", "true"); // brouillon conservé
+    await user.click(screen.getByRole("switch", { name: "Notification iPhone" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "PUT")).toHaveLength(2));
+    expect(calls.filter((c) => c.method === "PUT")[1].body).toMatchObject({ webpush: false, gotify: false });
   });
 
   it("alerts_webpush_denied_shows_toast", async () => {

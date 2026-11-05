@@ -62,13 +62,28 @@ export default function Alerts() {
     onError: (e) => toast(msg(e)),
   });
 
+  // Le canal Web Push s'enregistre tout de suite, avec les valeurs du serveur : jamais abonné sans l'alerte active.
+  const saveWebpush = useMutation({
+    mutationFn: (webpush: boolean) => {
+      const { gotify_token_set: _set, ...current } = server.data!;
+      return apiSend<AlertSettings>("PUT", "/api/settings/alerts", { ...current, webpush } satisfies AlertSettingsUpdate);
+    },
+    onSuccess: (saved) => {
+      client.setQueryData(["settings", "alerts"], saved);
+      setDraft((d) => (d ? { ...d, webpush: saved.webpush } : d));
+      toast("Réglages enregistrés");
+    },
+    onError: (e) => toast(msg(e)),
+  });
+
   const onWebpush = async (on: boolean) => {
     setPushMessage(null);
-    if (!on) { update({ webpush: false }); return; }
+    if (!server.data) return;
+    if (!on) { saveWebpush.mutate(false); return; }
     setSubscribing(true);
     const result = await subscribeToPush();
     setSubscribing(false);
-    if (result.ok) { update({ webpush: true }); return; }
+    if (result.ok) { saveWebpush.mutate(true); return; }
     if (result.reason === "denied") toast(result.message);
     else setPushMessage(result.message);
   };
@@ -90,7 +105,7 @@ export default function Alerts() {
             <h2 className="settings-label">Canaux</h2>
             <div className="settings-card">
               <Row label="Notification iPhone">
-                <Toggle label="Notification iPhone" checked={draft.webpush} disabled={subscribing} onChange={(v) => void onWebpush(v)} />
+                <Toggle label="Notification iPhone" checked={draft.webpush} disabled={subscribing || saveWebpush.isPending} onChange={(v) => void onWebpush(v)} />
               </Row>
               {pushMessage && <p className="settings-inline-note" role="alert">{pushMessage}</p>}
               <Row label="Gotify">

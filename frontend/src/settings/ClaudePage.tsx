@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, apiGet, apiSend } from "../api";
 import Sheet from "../components/Sheet";
+import { useToast } from "../components/Toast";
 import { formatClock, parseDate, plural } from "../format";
 import type { ClaudeStatus, OkDetail } from "../types";
 import SettingsLayout, { Group } from "./SettingsLayout";
 
 const LIFETIME_DAYS = 365;
+const WARN_CHOICES = [1, 3, 7, 14, 30];
 const TZ = "Europe/Paris";
 
 function lastOkText(iso: string): string {
@@ -19,7 +21,14 @@ function lastOkText(iso: string): string {
 export default function ClaudePage() {
   const [reconnecting, setReconnecting] = useState(false);
   const status = useQuery({ queryKey: ["claude-status"], queryFn: () => apiGet<ClaudeStatus>("/api/claude/status") });
+  const client = useQueryClient();
+  const toast = useToast();
   const s = status.data;
+  const warn = useMutation({
+    mutationFn: (warn_days: number) => apiSend<{ warn_days: number }>("PUT", "/api/claude/settings", { warn_days }),
+    onSuccess: () => { void client.invalidateQueries({ queryKey: ["claude-status"] }); toast("Réglages enregistrés"); },
+    onError: (e) => toast(e instanceof ApiError ? e.detail : "Une erreur est survenue"),
+  });
   const days = s?.days_left ?? null;
   const progress = days === null ? 0 : Math.max(0, Math.min(1, days / LIFETIME_DAYS));
   const details: string[] = [];
@@ -49,7 +58,13 @@ export default function ClaudePage() {
         <button type="button" className="btn" onClick={() => setReconnecting(true)}>Reconnecter</button>
       </div>
       <Group>
-        <p className="settings-note">Tu es prévenu 7 jours avant l'expiration du login Claude.</p>
+        <div className="settings-row static">
+          <label className="row-label" htmlFor="warn-days">Me prévenir avant l'expiration</label>
+          <select id="warn-days" className="select" aria-label="Me prévenir avant l'expiration" value={String(s?.warn_days ?? 7)} disabled={!s || warn.isPending}
+            onChange={(e) => warn.mutate(Number(e.target.value))}>
+            {WARN_CHOICES.map((n) => <option key={n} value={n}>{n === 1 ? "1 jour avant" : `${n} jours avant`}</option>)}
+          </select>
+        </div>
       </Group>
       {reconnecting && <TokenSheet onClose={() => setReconnecting(false)} />}
     </SettingsLayout>
