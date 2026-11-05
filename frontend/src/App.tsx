@@ -1,7 +1,9 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthStatus } from "./api";
+import Home from "./screens/Home";
 import Login from "./screens/Login";
+import MailShell from "./screens/MailShell";
 
 /** Garde : exige une session ouverte, sinon /login. Les écrans futurs se rangent sous cette route. */
 function RequireAuth() {
@@ -13,10 +15,11 @@ function RequireAuth() {
   return <Outlet />;
 }
 
-function Home() {
+/** Placeholder : l'écran Réglages arrive avec la tâche 14. */
+function SettingsPlaceholder() {
   return (
     <main className="page">
-      <h1>Accueil</h1>
+      <h1>Réglages</h1>
     </main>
   );
 }
@@ -27,6 +30,9 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<Home />} />
+        <Route path="/box/:account/:folder/*" element={<MailShell />} />
+        <Route path="/mail/:id" element={<MailShell />} />
+        <Route path="/settings" element={<SettingsPlaceholder />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

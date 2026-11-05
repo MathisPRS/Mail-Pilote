@@ -14,7 +14,7 @@ describe("App routing", () => {
   it("shows_home_when_authenticated", async () => {
     mockFetch({ "GET /api/auth/status": () => jsonResponse({ setup_done: true, authenticated: true }) });
     renderWithProviders(<App />, "/");
-    expect(await screen.findByRole("heading", { name: "Accueil" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mes boîtes" })).toBeInTheDocument();
   });
 });
 
@@ -35,6 +35,6 @@ describe("login flow with the real query client config", () => {
     await user.type(await screen.findByLabelText("Identifiant"), "m");
     await user.type(screen.getByLabelText("Mot de passe"), "secret");
     await user.click(screen.getByRole("button", { name: "Se connecter" }));
-    expect(await screen.findByRole("heading", { name: "Accueil" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mes boîtes" })).toBeInTheDocument();
   });
 });
