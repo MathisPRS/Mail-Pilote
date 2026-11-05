@@ -15,7 +15,7 @@ cp .env.example .env
 python3 -c "import secrets;print(secrets.token_urlsafe(48))"   # à coller dans MP_SECRET_KEY
 ```
 
-`MP_SECRET_KEY` (32 caractères minimum) chiffre les identifiants mail : l'appli refuse de démarrer sans elle. Ne la perds pas et ne la change pas (les boîtes devraient être reconfigurées).
+`MP_SECRET_KEY` (32 caractères minimum) chiffre les identifiants mail : l'appli refuse de démarrer sans elle. Si elle est absente ou trop courte, le conteneur s'arrête et le message d'erreur apparaît dans `docker compose logs`. Ne la perds pas et ne la change pas (les boîtes devraient être reconfigurées).
 
 Jeton Claude : sur une machine où Claude Code est installé, lance `claude setup-token`, puis colle le jeton dans `CLAUDE_CODE_OAUTH_TOKEN` du `.env`, ou plus tard dans Réglages › Claude.
 

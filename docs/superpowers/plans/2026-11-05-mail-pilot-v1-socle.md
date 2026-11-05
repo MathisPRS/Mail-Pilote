@@ -342,7 +342,7 @@ scripts/check_claude.sh   docs/mockups/
 - Modify: `backend/app/main.py` (vérifications au démarrage)
 
 **Interfaces:**
-- `Dockerfile` multi-étapes : (1) `node:22-slim` → `npm ci && npm run build` ; (2) `python:3.12-slim` + Node 22 copié depuis l'image node + `npm i -g @anthropic-ai/claude-code@<version relevée au Task 1>` + dépendances Python + `frontend/dist` ; utilisateur non-root `mailpilot` (uid 1000) ; `EXPOSE 8000` ; `HEALTHCHECK` sur `/api/health` ; `CMD ["uvicorn","app.main:create_app","--factory","--host","0.0.0.0","--port","8000","--proxy-headers","--forwarded-allow-ips","*"]`.
+- `Dockerfile` multi-étapes : (1) `node:22-slim` → `npm ci && npm run build` ; (2) `python:3.12-slim` + Node 22 copié depuis l'image node + `npm i -g @anthropic-ai/claude-code@<version relevée au Task 1>` + dépendances Python + `frontend/dist` ; utilisateur non-root `mailpilot` (uid 1000) ; `EXPOSE 8000` ; `HEALTHCHECK` sur `/api/health` ; `CMD ["uvicorn","app.main:create_app","--factory","--host","0.0.0.0","--port","8000","--no-proxy-headers"]`.
 - `docker-compose.yml` : un seul service `mail-pilot`, `build: .`, `image: mail-pilot:latest`, `env_file: .env`, volume `./data:/data`, `ports: ["127.0.0.1:8000:8000"]`, `restart: unless-stopped`.
 - `.env.example` : `MP_SECRET_KEY=` (avec en commentaire `python3 -c "import secrets;print(secrets.token_urlsafe(48))"`), `MP_PUBLIC_ORIGIN=https://mail.exemple.fr`, `CLAUDE_CODE_OAUTH_TOKEN=`, `TZ=Europe/Paris`, `DATA_DIR=/data`.
 - Démarrage : `init_db()`, `ensure_vapid_keys()`, `start_scheduler()` ; refus de démarrer si `MP_SECRET_KEY` absent ou < 32 caractères, avec le message « MP_SECRET_KEY manquante ou trop courte (32 caractères minimum) ».

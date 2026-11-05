@@ -23,7 +23,8 @@ SECRET_ERROR = "MP_SECRET_KEY manquante ou trop courte (32 caractères minimum)"
 CSP = (
     "default-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; "
     "base-uri 'none'; "
-    # le document srcdoc du lecteur de mail embarque un <style> : il hérite de cette CSP
+    # le srcdoc du lecteur embarque le <style> de l'appli (FRAME_CSS) et hérite de cette CSP ;
+    # nh3 retire tout <style> et attribut style des mails
     "style-src 'self' 'unsafe-inline'"
 )
 SECURITY_HEADERS = {
