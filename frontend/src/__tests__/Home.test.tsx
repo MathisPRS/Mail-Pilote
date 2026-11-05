@@ -43,6 +43,6 @@ describe("Home", () => {
     const user = userEvent.setup();
     renderWithProviders(<App />, "/");
     await user.click(await screen.findByRole("button", { name: "Profil et réglages" }));
-    expect(await screen.findByRole("heading", { name: "Réglages" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
   });
 });

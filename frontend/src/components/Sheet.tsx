@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
-const FOCUSABLE = "button:not([disabled]), a[href], input:not([disabled])";
+const FOCUSABLE = "button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled])";
 
 /** Panneau modal : feuille du bas sur mobile, fenêtre centrée de 420 px dès 900 px (CSS). */
 export default function Sheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
