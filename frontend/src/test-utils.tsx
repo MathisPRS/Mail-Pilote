@@ -23,8 +23,11 @@ export function mockFetch(routes: Record<string, () => Response>) {
   return fn;
 }
 
-export function renderWithProviders(ui: ReactElement, route = "/") {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+export function renderWithProviders(
+  ui: ReactElement,
+  route = "/",
+  client: QueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>

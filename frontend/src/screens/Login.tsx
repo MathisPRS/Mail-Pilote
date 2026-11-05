@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, authLogin, authSetup, getAuthStatus } from "../api";
 
 const MIN_PASSWORD = 12;
@@ -16,6 +16,7 @@ function messageFor(e: unknown): string {
 
 export default function Login() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const status = useQuery({ queryKey: ["auth-status"], queryFn: getAuthStatus });
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -41,6 +42,7 @@ export default function Login() {
     try {
       if (setup) await authSetup({ display_name: displayName.trim(), username: username.trim(), password });
       await authLogin({ username: username.trim(), password });
+      await queryClient.invalidateQueries({ queryKey: ["auth-status"] });
       navigate("/", { replace: true });
     } catch (err) {
       setError(messageFor(err));

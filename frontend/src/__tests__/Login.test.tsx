@@ -81,7 +81,7 @@ describe("Login", () => {
     await user.type(screen.getByLabelText("Mot de passe"), "un mot de passe long");
     await user.type(screen.getByLabelText("Confirmer"), "un mot de passe long");
     await user.click(screen.getByRole("button", { name: "Créer le compte" }));
-    await waitFor(() => expect(f).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(f).toHaveBeenCalledTimes(4));
     const setupBody = JSON.parse((f.mock.calls[1][1] as RequestInit).body as string);
     expect(setupBody).toEqual({ display_name: "Mathis", username: "mathis", password: "un mot de passe long" });
   });

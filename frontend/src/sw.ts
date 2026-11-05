@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { resolveNotificationUrl } from "./notificationUrl";
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 
 declare const self: ServiceWorkerGlobalScope;
@@ -30,18 +31,20 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data as { url?: string })?.url ?? "/", self.location.origin).href;
+  const target = resolveNotificationUrl((event.notification.data as { url?: string } | null)?.url, self.location.origin);
   event.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
-        if ("focus" in w) {
+        try {
           await w.focus();
-          if ("navigate" in w) await w.navigate(url);
+          await w.navigate(target);
           return;
+        } catch {
+          // client non contrôlable : on essaie le suivant, puis on ouvre une fenêtre
         }
       }
-      await self.clients.openWindow(url);
+      await self.clients.openWindow(target);
     })(),
   );
 });
