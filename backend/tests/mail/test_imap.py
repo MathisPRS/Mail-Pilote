@@ -1,8 +1,9 @@
+import pytest
 from fakes import FakeMailSession
 
 from app.mail.imap import (
     MailAuthError, MailConnectError, MailError, decode_header_value, parse_address,
-    extract_preview, has_attachments_from_structure,
+    extract_preview, find_text_part, has_attachments_from_structure,
 )
 
 
@@ -67,3 +68,74 @@ def test_fake_session_contract():
     assert s.fetch_headers("INBOX", 0) == []
     assert s.fetch_headers("[Gmail]/Corbeille", 0)[0].uid == new_uid
     assert s.moves == [("INBOX", uid, "[Gmail]/Corbeille", new_uid)]
+
+
+# ---- realistic imapclient-shaped BODYSTRUCTURE ----
+_TXT = (b"text", b"plain", (b"charset", b"utf-8"), None, None, b"7bit", 10, 1, None, None, None, None)
+_HTM = (b"text", b"html", (b"charset", b"utf-8"), None, None, b"7bit", 20, 1, None, None, None, None)
+_PDF = (b"application", b"pdf", (b"name", b"a.pdf"), None, None, b"base64", 100, None,
+        (b"attachment", (b"filename", b"a.pdf")), None, None)
+
+
+def test_alternative_with_boundary_params_has_no_attachment():
+    struct = (_TXT, _HTM, b"alternative", (b"boundary", b"xyz"), None, None)
+    assert has_attachments_from_structure(struct) is False
+    assert find_text_part(struct) == ("1", False, "utf-8", "7bit")
+
+
+def test_mixed_with_pdf_attachment():
+    struct = (_TXT, _PDF, b"mixed", (b"boundary", b"xyz"), (b"inline", None), None)
+    assert has_attachments_from_structure(struct) is True
+    assert find_text_part(struct)[0] == "1"
+
+
+def test_nested_alternative_in_mixed_part_numbers():
+    alt = (_TXT, _HTM, b"alternative", (b"boundary", b"b"), None, None)
+    struct = (alt, _PDF, b"mixed", (b"boundary", b"a"), None, None)
+    assert find_text_part(struct)[0] == "1.1"
+
+
+# ---- real session move(): never a permanent delete ----
+from unittest.mock import MagicMock
+
+from app.mail.imap import ImapClientSession
+
+
+def _client(caps):
+    c = MagicMock()
+    c.select_folder.return_value = {b"UIDVALIDITY": 1}
+    c.has_capability.side_effect = lambda n: n in caps
+    return c
+
+
+def test_move_with_move_capability_uses_move_only():
+    c = _client({"MOVE"})
+    c.move.return_value = b"Move completed"
+    ImapClientSession(c).move("INBOX", 5, "Trash")
+    c.move.assert_called_once_with([5], "Trash")
+    c.uid_expunge.assert_not_called()
+    c.expunge.assert_not_called()
+    c.copy.assert_not_called()
+
+
+def test_move_uidplus_fallback_expunges_only_that_uid():
+    c = _client({"UIDPLUS"})
+    order = MagicMock()
+    c.copy.side_effect = lambda *a: (order.copy(), b"[COPYUID 7 5 42] Copy completed")[1]
+    c.add_flags.side_effect = lambda *a: order.flag()
+    c.uid_expunge.side_effect = lambda *a: order.expunge()
+    new = ImapClientSession(c).move("INBOX", 5, "Trash")
+    assert new == 42
+    c.copy.assert_called_once_with([5], "Trash")
+    c.add_flags.assert_called_once_with([5], [b"\\Deleted"])
+    c.uid_expunge.assert_called_once_with([5])
+    c.expunge.assert_not_called()
+    assert [x[0] for x in order.method_calls] == ["copy", "flag", "expunge"]
+
+
+def test_move_without_move_or_uidplus_refuses():
+    c = _client(set())
+    with pytest.raises(MailError):
+        ImapClientSession(c).move("INBOX", 5, "Trash")
+    for m in (c.copy, c.add_flags, c.uid_expunge, c.expunge, c.move):
+        m.assert_not_called()

@@ -125,10 +125,13 @@ def _is_multipart(struct) -> bool:
 
 
 def _split_multipart(struct):
-    parts = [p for p in struct if isinstance(p, (tuple, list))]
-    # imapclient: sous-parties d'abord, puis le sous-type (bytes)
-    rest = [p for p in struct if not isinstance(p, (tuple, list))]
-    return parts, _s(rest[0]) if rest else ""
+    """Enfants = série initiale de tuples ; l'élément suivant est le sous-type,
+    le reste (params, disposition...) est de l'extension à ignorer."""
+    n = 0
+    while n < len(struct) and isinstance(struct[n], (tuple, list)):
+        n += 1
+    sub = _s(struct[n]) if n < len(struct) else ""
+    return list(struct[:n]), sub
 
 
 def _params(v) -> dict[str, str]:
@@ -136,6 +139,14 @@ def _params(v) -> dict[str, str]:
         return {}
     return {_s(v[i]): (v[i + 1].decode("utf-8", "replace") if isinstance(v[i + 1], bytes) else str(v[i + 1]))
             for i in range(0, len(v) - 1, 2)}
+
+
+def _is_attachment_disposition(leaf) -> bool:
+    # leaf texte : ..., size, lines, md5, disposition, language, location
+    for el in leaf[8:]:
+        if isinstance(el, (tuple, list)) and el and _s(el[0]) == "attachment":
+            return True
+    return False
 
 
 def has_attachments_from_structure(struct, in_related: bool = False) -> bool:
@@ -146,7 +157,7 @@ def has_attachments_from_structure(struct, in_related: bool = False) -> bool:
         return any(has_attachments_from_structure(p, in_related or sub == "related") for p in parts)
     main, sub = _s(struct[0]), _s(struct[1]) if len(struct) > 1 else ""
     if main == "text":
-        return False
+        return _is_attachment_disposition(struct)
     if in_related and main in ("image", "audio", "video"):
         return False  # image inline d'un message HTML
     return True
