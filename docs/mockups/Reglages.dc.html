@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Profil et réglages</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.rg-scroll::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F2F3F6; font-family: Inter, system-ui, sans-serif; color: #111317; display: flex; flex-direction: column;">
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; padding: 14px 8px 6px; flex-shrink: 0;">
+    <button onClick="{{back}}" style="justify-self: start; display: flex; align-items: center; gap: 2px; background: none; border: none; font: inherit; font-size: 16px; color: #1F6FEB; min-height: 44px; padding: 0 8px; cursor: pointer; white-space: nowrap;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      {{backLabel}}
+    </button>
+    <h1 style="margin: 0; font-size: 16px; font-weight: 600; text-align: center; white-space: nowrap;">{{pageTitle}}</h1>
+    <span style="display: block;"></span>
+  </div>
+
+  <div class="rg-scroll" style="flex: 1; min-height: 0; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 20px; scrollbar-width: none;">
+
+    <!-- ========== RACINE ========== -->
+    <sc-if value="{{pg.root}}" hint-placeholder-val="{{true}}">
+      <div style="background: #FFFFFF; border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px;">
+        <span style="width: 52px; height: 52px; border-radius: 999px; background: #1F3A8A; color: #FFFFFF; font-size: 22px; font-weight: 600; display: flex; align-items: center; justify-content: center;">M</span>
+        <span style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 17px; font-weight: 600;">{{f.name.value}}</span>
+          <span style="font-size: 13px; color: #5F6672;">4 boîtes connectées</span>
+        </span>
+      </div>
+      <sc-for list="{{menu}}" as="g" hint-placeholder-count="3">
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+            <button onClick="{{r.go}}" style="{{r.rowStyle}}">
+              <span style="width: 30px; height: 30px; border-radius: 8px; background: {{r.color}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{r.icon}}"></path></svg>
+              </span>
+              <span style="flex: 1; font-size: 16px;">{{r.label}}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A0A6B1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </button>
+          </sc-for>
+        </div>
+      </sc-for>
+      <span style="font-size: 12px; color: #5F6672; text-align: center;">Mail Pilot 0.1 · auto-hébergé</span>
+    </sc-if>
+
+    <!-- ========== COMPTE ========== -->
+    <sc-if value="{{pg.compte}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 8px;">
+        <span style="width: 76px; height: 76px; border-radius: 999px; background: #1F3A8A; color: #FFFFFF; font-size: 32px; font-weight: 600; display: flex; align-items: center; justify-content: center;">M</span>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+        <label style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-bottom: 1px solid #ECEEF1;">
+          <span style="width: 120px; font-size: 15px; flex-shrink: 0;">Nom affiché</span>
+          <input value="{{f.name.value}}" onChange="{{f.name.onChange}}" style="flex: 1; min-width: 0; border: none; font: inherit; font-size: 15px; color: #111317; outline: none; text-align: right; background: transparent;">
+        </label>
+        <label style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px; border-bottom: 1px solid #ECEEF1;">
+          <span style="width: 120px; font-size: 15px; flex-shrink: 0;">E-mail de contact</span>
+          <input value="{{f.contact.value}}" onChange="{{f.contact.onChange}}" placeholder="pour les alertes de secours" style="flex: 1; min-width: 0; border: none; font: inherit; font-size: 15px; color: #111317; outline: none; text-align: right; background: transparent;">
+        </label>
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px;">
+          <span style="flex: 1; font-size: 15px;">Fuseau horaire</span>
+          <span style="font-size: 15px; color: #5F6672;">Europe/Paris</span>
+        </div>
+      </div>
+      <button onClick="{{saveAccount}}" style="font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; background: #111317; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Enregistrer</button>
+    </sc-if>
+
+    <!-- ========== SÉCURITÉ ========== -->
+    <sc-if value="{{pg.securite}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Face ID</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 14px;">
+            <span style="width: 30px; height: 30px; border-radius: 8px; background: #15803D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M9 9v1"></path><path d="M15 9v1"></path><path d="M12 9v4h-1"></path><path d="M9.5 15.5a3.5 3.5 0 0 0 5 0"></path></svg>
+            </span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px;">Déverrouiller avec Face ID</span><span style="font-size: 12px; color: #5F6672;">Demandé à l'ouverture de l'appli</span></span>
+            <button onClick="{{t.faceid.toggle}}" role="switch" aria-checked="{{t.faceid.aria}}" aria-label="Déverrouiller avec Face ID" style="{{t.faceid.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <sc-if value="{{t.faceid.on}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px 14px 14px; border-top: 1px solid #ECEEF1;">
+              <span style="font-size: 15px;">Verrouiller après</span>
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; background: #E4E7EC; border-radius: 12px; padding: 3px;">
+                <sc-for list="{{lockDelays}}" as="ld" hint-placeholder-count="4">
+                  <button onClick="{{ld.pick}}" style="{{ld.style}}">{{ld.label}}</button>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Mot de passe</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <input type="password" placeholder="Mot de passe actuel" aria-label="Mot de passe actuel" style="border: none; border-bottom: 1px solid #ECEEF1; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+          <input type="password" placeholder="Nouveau mot de passe" aria-label="Nouveau mot de passe" style="border: none; border-bottom: 1px solid #ECEEF1; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+          <input type="password" placeholder="Confirmer le nouveau mot de passe" aria-label="Confirmer le nouveau mot de passe" style="border: none; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+        </div>
+        <button onClick="{{changePwd}}" style="margin-top: 6px; font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; background: #111317; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Changer le mot de passe</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Appareils connectés</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 14px; border-bottom: 1px solid #ECEEF1;">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px;">iPhone</span><span style="font-size: 12px; color: #5F6672;">Cet appareil</span></span>
+            <span style="font-size: 12px; font-weight: 600; color: #15803D;">Actif</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 14px;">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px;">Navigateur Mac</span><span style="font-size: 12px; color: #5F6672;">Hier à 21:14</span></span>
+          </div>
+        </div>
+        <button onClick="{{logoutOthers}}" style="margin-top: 6px; font: inherit; font-size: 15px; font-weight: 600; color: #C81E1E; background: #FFFFFF; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Déconnecter les autres appareils</button>
+      </div>
+    </sc-if>
+
+    <!-- ========== THÈME ========== -->
+    <sc-if value="{{pg.theme}}" hint-placeholder-val="{{false}}">
+      <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+        <sc-for list="{{themes}}" as="t" hint-placeholder-count="3">
+          <button onClick="{{t.pick}}" style="{{t.rowStyle}}">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;">
+              <span style="font-size: 16px;">{{t.label}}</span>
+              <sc-if value="{{t.hasSub}}" hint-placeholder-val="{{false}}"><span style="font-size: 12px; color: #5F6672;">{{t.sub}}</span></sc-if>
+            </span>
+            <sc-if value="{{t.selected}}" hint-placeholder-val="{{false}}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F6FEB" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+            </sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ========== BOÎTES MAIL ========== -->
+    <sc-if value="{{pg.boites}}" hint-placeholder-val="{{false}}">
+      <sc-for list="{{boxes}}" as="b" hint-placeholder-count="4">
+        <div style="background: #FFFFFF; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="width: 34px; height: 34px; border-radius: 9px; background: {{b.color}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+            </span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+              <span style="font-size: 16px; font-weight: 600;">{{b.label}}</span>
+              <span style="font-size: 12px; color: #5F6672; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{b.addr}}</span>
+            </span>
+            <button onClick="{{b.tg.toggle}}" role="switch" aria-checked="{{b.tg.aria}}" aria-label="Analyser cette boîte" style="{{b.tg.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: {{b.statusColor}}; font-weight: 500;">
+            <span style="width: 7px; height: 7px; border-radius: 999px; background: {{b.statusColor}}; display: block;"></span>
+            {{b.status}}
+          </span>
+          <sc-if value="{{b.err}}" hint-placeholder-val="{{false}}">
+            <button onClick="{{b.fix}}" style="font: inherit; font-size: 14px; font-weight: 600; color: #9A3412; background: #FFF1E6; border: none; border-radius: 10px; min-height: 44px; cursor: pointer;">Mettre à jour le mot de passe</button>
+          </sc-if>
+        </div>
+      </sc-for>
+      <button onClick="{{goAjout}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1.5px dashed #B9C6DD; border-radius: 14px; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #1F6FEB; cursor: pointer;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        Ajouter une boîte mail
+      </button>
+    </sc-if>
+
+    <!-- ========== AJOUT DE BOÎTE ========== -->
+    <sc-if value="{{pg.ajout}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Fournisseur</span>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{providers}}" as="pv" hint-placeholder-count="4">
+            <button onClick="{{pv.pick}}" style="{{pv.style}}">
+              <span style="width: 26px; height: 26px; border-radius: 7px; background: {{pv.color}}; display: block; flex-shrink: 0;"></span>
+              {{pv.label}}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{hasProvider}}" hint-placeholder-val="{{false}}">
+        <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #3F4652; background: #EAF1FE; border-radius: 12px; padding: 12px 14px;">{{providerHelp}}</p>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <input type="email" placeholder="Adresse e-mail" aria-label="Adresse e-mail" style="border: none; border-bottom: 1px solid #ECEEF1; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+          <sc-if value="{{isImap}}" hint-placeholder-val="{{false}}">
+            <input placeholder="Serveur IMAP (ex. imap.laposte.net)" aria-label="Serveur IMAP" style="border: none; border-bottom: 1px solid #ECEEF1; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+            <input placeholder="Port (993)" aria-label="Port" inputmode="numeric" style="border: none; border-bottom: 1px solid #ECEEF1; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+          </sc-if>
+          <sc-if value="{{needsPwd}}" hint-placeholder-val="{{true}}">
+            <input type="password" placeholder="{{pwdLabel}}" aria-label="{{pwdLabel}}" style="border: none; font: inherit; font-size: 15px; min-height: 52px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+          </sc-if>
+        </div>
+        <sc-if value="{{isOutlook}}" hint-placeholder-val="{{false}}">
+          <button onClick="{{submitBox}}" style="font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; background: #0F6CBD; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Se connecter avec Microsoft</button>
+        </sc-if>
+        <sc-if value="{{needsPwd}}" hint-placeholder-val="{{true}}">
+          <button onClick="{{submitBox}}" style="font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; background: #111317; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Tester et ajouter</button>
+        </sc-if>
+      </sc-if>
+    </sc-if>
+
+    <!-- ========== CLAUDE ========== -->
+    <sc-if value="{{pg.claude}}" hint-placeholder-val="{{false}}">
+      <div style="background: #FFFFFF; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 17px; font-weight: 600;">Claude</span>
+          <span style="font-size: 12px; font-weight: 600; color: #15803D; background: #E3F4EA; border-radius: 999px; padding: 3px 10px;">Connecté</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            <span style="color: #5F6672;">Expiration du login</span>
+            <span style="font-weight: 600;">dans 312 jours</span>
+          </div>
+          <div style="height: 6px; border-radius: 999px; background: #ECEEF1;"><div style="width: 85%; height: 6px; border-radius: 999px; background: #16A34A;"></div></div>
+          <span style="font-size: 12px; color: #5F6672;">Le 13/09/2027 · dernier appel réussi aujourd'hui à 08:02</span>
+        </div>
+        <button onClick="{{reconnect}}" style="font: inherit; font-size: 15px; font-weight: 600; color: #1F6FEB; background: #EAF1FE; border: none; border-radius: 12px; min-height: 48px; cursor: pointer;">Reconnecter</button>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 14px;">
+          <span style="flex: 1; font-size: 15px;">Me prévenir 7 jours avant l'expiration</span>
+          <button onClick="{{t.claudeWarn.toggle}}" role="switch" aria-checked="{{t.claudeWarn.aria}}" aria-label="Me prévenir avant l'expiration" style="{{t.claudeWarn.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ========== RÈGLES ========== -->
+    <sc-if value="{{pg.regles}}" hint-placeholder-val="{{false}}">
+      <sc-if value="{{hasPending}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Apprises par Claude · à valider</span>
+          <sc-for list="{{pending}}" as="q" hint-placeholder-count="2">
+            <div style="background: #FFFFFF; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 14px; line-height: 1.45;">{{q.text}}</span>
+              <span style="font-size: 14px; line-height: 1.45; font-weight: 600;">{{q.ask}}</span>
+              <div style="display: flex; gap: 8px;">
+                <button onClick="{{q.accept}}" style="flex: 1; font: inherit; font-size: 14px; font-weight: 600; color: #FFFFFF; background: #111317; border: none; border-radius: 10px; min-height: 44px; cursor: pointer;">Valider</button>
+                <button onClick="{{q.refuse}}" style="flex: 1; font: inherit; font-size: 14px; font-weight: 600; color: #111317; background: #F1F3F6; border: none; border-radius: 10px; min-height: 44px; cursor: pointer;">Refuser</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Mes règles</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <sc-for list="{{rules}}" as="u" hint-placeholder-count="4">
+            <div style="{{u.rowStyle}}">
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="font-size: 12px; color: #5F6672;">{{u.kindLabel}}</span>
+                <span style="font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{u.value}}</span>
+              </span>
+              <span style="{{u.effectStyle}}">{{u.effectLabel}}</span>
+              <button onClick="{{u.remove}}" aria-label="Supprimer la règle" style="width: 36px; height: 44px; border: none; background: none; color: #A0A6B1; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <button onClick="{{goRegleAjout}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1.5px dashed #B9C6DD; border-radius: 14px; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #1F6FEB; cursor: pointer;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        Ajouter une règle
+      </button>
+    </sc-if>
+
+    <!-- ========== NOUVELLE RÈGLE ========== -->
+    <sc-if value="{{pg.regleAjout}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">La règle porte sur</span>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: #E4E7EC; border-radius: 12px; padding: 3px;">
+          <sc-for list="{{kinds}}" as="k" hint-placeholder-count="3">
+            <button onClick="{{k.pick}}" style="{{k.style}}">{{k.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+        <input value="{{newVal}}" onChange="{{onNewVal}}" placeholder="{{newPlaceholder}}" aria-label="Valeur de la règle" style="border: none; font: inherit; font-size: 16px; min-height: 54px; padding: 0 14px; outline: none; background: transparent; color: #111317;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Alors</span>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <sc-for list="{{effects}}" as="e" hint-placeholder-count="3">
+            <button onClick="{{e.pick}}" style="{{e.style}}">{{e.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <button onClick="{{saveRule}}" style="font: inherit; font-size: 16px; font-weight: 600; color: #FFFFFF; background: #111317; border: none; border-radius: 12px; min-height: 50px; cursor: pointer;">Enregistrer la règle</button>
+    </sc-if>
+
+    <!-- ========== PLANIFICATION ========== -->
+    <sc-if value="{{pg.planif}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Analyses automatiques</span>
+        <div style="background: #FFFFFF; border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <sc-for list="{{times}}" as="tm" hint-placeholder-count="3">
+              <span style="display: flex; align-items: center; gap: 2px; background: #F1F3F6; border-radius: 10px; padding-left: 12px; font-size: 15px; font-weight: 600;">
+                {{tm.t}}
+                <button onClick="{{tm.remove}}" aria-label="Retirer cet horaire" style="width: 36px; height: 40px; border: none; background: none; color: #5F6672; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+                </button>
+              </span>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="time" value="{{f.newTime.value}}" onChange="{{f.newTime.onChange}}" aria-label="Nouvel horaire" style="flex: 1; font: inherit; font-size: 15px; min-height: 44px; border: 1px solid #E1E4EA; border-radius: 10px; padding: 0 12px; background: #FFFFFF; color: #111317;">
+            <button onClick="{{addTime}}" style="font: inherit; font-size: 15px; font-weight: 600; color: #1F6FEB; background: #EAF1FE; border: none; border-radius: 10px; min-height: 44px; padding: 0 16px; cursor: pointer;">Ajouter</button>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Jours</span>
+        <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px;">
+          <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+            <button onClick="{{d.toggle}}" aria-pressed="{{d.aria}}" aria-label="{{d.name}}" style="{{d.style}}">{{d.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Apprentissage du soir</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 14px; border-bottom: 1px solid #ECEEF1;">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 15px;">Mettre à jour le tri</span><span style="font-size: 12px; color: #5F6672;">D'après tes mails ouverts et supprimés</span></span>
+            <button onClick="{{t.learn.toggle}}" role="switch" aria-checked="{{t.learn.aria}}" aria-label="Apprentissage du soir" style="{{t.learn.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <label style="display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 14px;">
+            <span style="flex: 1; font-size: 15px;">Heure</span>
+            <input type="time" value="{{f.learnTime.value}}" onChange="{{f.learnTime.onChange}}" style="font: inherit; font-size: 15px; border: none; background: #F1F3F6; border-radius: 8px; padding: 6px 10px; color: #111317;">
+          </label>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ========== ALERTES ========== -->
+    <sc-if value="{{pg.alertes}}" hint-placeholder-val="{{false}}">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Canaux</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 0 14px; border-bottom: 1px solid #ECEEF1;">
+            <span style="flex: 1; font-size: 15px;">Notification iPhone</span>
+            <button onClick="{{t.iphone.toggle}}" role="switch" aria-checked="{{t.iphone.aria}}" aria-label="Notification iPhone" style="{{t.iphone.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 0 14px;">
+            <span style="flex: 1; font-size: 15px;">Gotify</span>
+            <button onClick="{{t.gotify.toggle}}" role="switch" aria-checked="{{t.gotify.aria}}" aria-label="Gotify" style="{{t.gotify.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <sc-if value="{{t.gotify.on}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; flex-direction: column; gap: 8px; padding: 0 14px 14px;">
+              <input placeholder="URL du serveur (ex. https://gotify.mon-nas.local)" aria-label="URL du serveur Gotify" style="font: inherit; font-size: 14px; min-height: 44px; border: 1px solid #E1E4EA; border-radius: 10px; padding: 0 12px; background: #FFFFFF; color: #111317; outline: none;">
+              <input type="password" placeholder="Jeton de l'application" aria-label="Jeton de l'application Gotify" style="font: inherit; font-size: 14px; min-height: 44px; border: 1px solid #E1E4EA; border-radius: 10px; padding: 0 12px; background: #FFFFFF; color: #111317; outline: none;">
+              <button onClick="{{testGotify}}" style="font: inherit; font-size: 14px; font-weight: 600; color: #1F6FEB; background: #EAF1FE; border: none; border-radius: 10px; min-height: 44px; cursor: pointer;">Envoyer une notification de test</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">M'alerter pour</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <sc-for list="{{alertKinds}}" as="a" hint-placeholder-count="4">
+            <div style="{{a.rowStyle}}">
+              <span style="flex: 1; font-size: 15px;">{{a.label}}</span>
+              <button onClick="{{a.tg.toggle}}" role="switch" aria-checked="{{a.tg.aria}}" aria-label="{{a.label}}" style="{{a.tg.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 0 4px;">Heures de silence</span>
+        <div style="background: #FFFFFF; border-radius: 14px; display: flex; flex-direction: column;">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 0 14px;">
+            <span style="flex: 1; font-size: 15px;">Activer</span>
+            <button onClick="{{t.quiet.toggle}}" role="switch" aria-checked="{{t.quiet.aria}}" aria-label="Heures de silence" style="{{t.quiet.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+          </div>
+          <sc-if value="{{t.quiet.on}}" hint-placeholder-val="{{true}}">
+            <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 14px; border-top: 1px solid #ECEEF1;">
+              <span style="flex: 1; font-size: 15px;">De</span>
+              <input type="time" value="{{f.quietFrom.value}}" onChange="{{f.quietFrom.onChange}}" aria-label="Début" style="font: inherit; font-size: 15px; border: none; background: #F1F3F6; border-radius: 8px; padding: 6px 10px; color: #111317;">
+              <span style="font-size: 15px;">à</span>
+              <input type="time" value="{{f.quietTo.value}}" onChange="{{f.quietTo.onChange}}" aria-label="Fin" style="font: inherit; font-size: 15px; border: none; background: #F1F3F6; border-radius: 8px; padding: 6px 10px; color: #111317;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; min-height: 54px; padding: 0 14px; border-top: 1px solid #ECEEF1;">
+              <span style="flex: 1; font-size: 15px;">Les alertes TT+ passent quand même</span>
+              <button onClick="{{t.quietTT.toggle}}" role="switch" aria-checked="{{t.quietTT.aria}}" aria-label="Les alertes TT+ passent quand même" style="{{t.quietTT.style}}"><span style="width: 27px; height: 27px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.25); display: block;"></span></button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 28px; background: #111317; color: #FFFFFF; border-radius: 14px; padding: 14px 16px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">{{toastMsg}}</div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startPage":{"editor":"enum","options":["root","compte","securite","theme","boites","ajout","claude","regles","regleAjout","planif","alertes"],"default":"root"},"onClose":{"editor":null},"$preview":{"width":390,"height":844}}'>
+var RG_ICON = {
+  compte: "M20 21a8 8 0 0 0-16 0 M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
+  securite: "M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4",
+  theme: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 3v18",
+  boites: "M3 5h18v14H3z M3 7l9 6 9-6",
+  claude: "M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z",
+  regles: "M4 6h16 M4 12h10 M4 18h6",
+  planif: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z M12 7v5l3 2",
+  alertes: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.9 1.9 0 0 0 3.4 0"
+};
+var RG_MENU = [
+  [["compte", "Compte", "#1F3A8A"], ["securite", "Mot de passe et sécurité", "#5F6672"], ["theme", "Thème", "#111317"]],
+  [["boites", "Boîtes mail", "#3A9BDC"], ["claude", "Claude", "#B4532A"]],
+  [["regles", "Règles de tri", "#1F6FEB"], ["planif", "Planification", "#6D28D9"], ["alertes", "Alertes", "#DC2626"]]
+];
+var RG_TITLES = { root: "Profil", compte: "Compte", securite: "Sécurité", theme: "Thème", boites: "Boîtes mail", ajout: "Nouvelle boîte", claude: "Claude", regles: "Règles de tri", regleAjout: "Nouvelle règle", planif: "Planification", alertes: "Alertes" };
+var RG_PARENT = { ajout: "boites", regleAjout: "regles" };
+var RG_BOXES = [
+  { id: "gmail", label: "Gmail", addr: "[adresse]@gmail.com", color: "#D93025", ok: true, status: "Synchronisée à 08:00" },
+  { id: "outlook", label: "Outlook", addr: "[adresse]@outlook.fr", color: "#0F6CBD", ok: true, status: "Synchronisée à 08:00" },
+  { id: "icloud", label: "iCloud", addr: "[adresse]@icloud.com", color: "#3A9BDC", ok: false, status: "Mot de passe d'application expiré" },
+  { id: "laposte", label: "La Poste", addr: "[adresse]@laposte.net", color: "#B88A00", ok: true, status: "Synchronisée à 08:00" }
+];
+var RG_PROVIDERS = [["gmail", "Gmail", "#D93025"], ["outlook", "Outlook", "#0F6CBD"], ["icloud", "iCloud", "#3A9BDC"], ["imap", "Autre (IMAP)", "#5F6672"]];
+var RG_HELP = {
+  gmail: "Active la validation en deux étapes sur ton compte Google, crée un mot de passe d'application, puis colle-le ici.",
+  outlook: "Microsoft n'accepte plus les mots de passe : tu te connectes directement sur la page Microsoft.",
+  icloud: "Sur le site de ton identifiant Apple, génère un mot de passe pour app, puis colle-le ici.",
+  imap: "Pour La Poste, Free, Orange… Renseigne le serveur IMAP indiqué par ton fournisseur."
+};
+var RG_KINDS = [["sender", "Expéditeur", "ex. @impots.gouv.fr"], ["type", "Type", "ex. Factures"], ["context", "Contexte", "ex. Tout ce qui concerne l'école"]];
+var RG_KIND_LABEL = { sender: "Expéditeur", type: "Type de mail", context: "Contexte" };
+var RG_EFFECTS = [["important", "Important"], ["tt", "Alerte TT+"], ["trash", "Corbeille"]];
+var RG_EFFECT_STYLE = { important: "background:#FFF1E6;color:#9A3412", tt: "background:#0F5C4D;color:#FFFFFF", trash: "background:#FDECEC;color:#A61B1B" };
+var RG_RULES = [
+  { id: 1, kind: "sender", value: "@impots.gouv.fr", effect: "important" },
+  { id: 2, kind: "type", value: "Factures et échéances", effect: "important" },
+  { id: 3, kind: "context", value: "Tout ce qui concerne l'école", effect: "important" },
+  { id: 4, kind: "context", value: "Annonce de télétravail", effect: "tt" }
+];
+var RG_PENDING = [
+  { id: 101, text: "Tu supprimes les mails de Promo Mode sans les ouvrir (12 fois).", ask: "Les mettre à la corbeille automatiquement ?", rule: { kind: "sender", value: "Promo Mode", effect: "trash" } },
+  { id: 102, text: "Tu ouvres toujours les mails de ta mutuelle (6 fois).", ask: "Les marquer comme importants ?", rule: { kind: "sender", value: "Mutuelle", effect: "important" } }
+];
+var RG_DAYS = [["l", "L", "Lundi"], ["ma", "M", "Mardi"], ["me", "M", "Mercredi"], ["j", "J", "Jeudi"], ["v", "V", "Vendredi"], ["s", "S", "Samedi"], ["d", "D", "Dimanche"]];
+var RG_ROW = "display:flex;align-items:center;gap:12px;min-height:52px;padding:0 14px;width:100%;border:none;background:none;font:inherit;color:#111317;cursor:pointer;text-align:left;box-sizing:border-box;";
+
+class Component extends DCLogic {
+  toast(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 3000);
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  renderVals() {
+    var self = this;
+    var p = this.props;
+    var s = this.state || {};
+    var page = s.page || p.startPage || "root";
+    var set = function (o) { self.setState(o); };
+    var go = function (pg) { return function () { set({ page: pg }); }; };
+    var line = function (i, n) { return i < n - 1 ? "border-bottom:1px solid #ECEEF1;" : ""; };
+
+    var tgs = s.tg || {};
+    var tg = function (key, def) {
+      var on = tgs[key] !== undefined ? tgs[key] : def;
+      return {
+        on: on, aria: on ? "true" : "false",
+        style: "width:51px;height:31px;border-radius:999px;border:none;padding:2px;display:flex;cursor:pointer;flex-shrink:0;box-sizing:border-box;justify-content:" + (on ? "flex-end" : "flex-start") + ";background:" + (on ? "#16A34A" : "#D5D9E0") + ";",
+        toggle: function () { var n = Object.assign({}, tgs); n[key] = !on; set({ tg: n }); }
+      };
+    };
+    var fs = s.fields || {};
+    var fld = function (key, def) {
+      return {
+        value: fs[key] !== undefined ? fs[key] : def,
+        onChange: function (e) { var n = Object.assign({}, fs); n[key] = e.target.value; set({ fields: n }); }
+      };
+    };
+    var f = { name: fld("name", "Mathis"), contact: fld("contact", ""), newTime: fld("newTime", "16:00"), learnTime: fld("learnTime", "23:00"), quietFrom: fld("quietFrom", "22:00"), quietTo: fld("quietTo", "07:00") };
+    var t = { claudeWarn: tg("claudeWarn", true), learn: tg("learn", true), iphone: tg("iphone", true), gotify: tg("gotify", true), quiet: tg("quiet", true), quietTT: tg("quietTT", true), faceid: tg("faceid", true) };
+    var lockDelay = s.lockDelay || "5m";
+    var lockDelays = [["0", "Aussitôt"], ["5m", "5 min"], ["1h", "1 h"], ["4h", "4 h"]].map(function (d) {
+      var on = lockDelay === d[0];
+      return { label: d[1], pick: function () { set({ lockDelay: d[0] }); }, style: "font:inherit;font-size:13px;font-weight:600;border:none;border-radius:9px;min-height:38px;cursor:pointer;" + (on ? "background:#FFFFFF;color:#111317;box-shadow:0 1px 3px rgba(0,0,0,0.12);" : "background:transparent;color:#5F6672;") };
+    });
+
+    var pg = {};
+    Object.keys(RG_TITLES).forEach(function (k) { pg[k] = page === k; });
+
+    var menu = RG_MENU.map(function (g) {
+      return { rows: g.map(function (r, i) { return { label: r[1], color: r[2], icon: RG_ICON[r[0]], go: go(r[0]), rowStyle: RG_ROW + line(i, g.length) }; }) };
+    });
+
+    var theme = s.theme || "auto";
+    var themeDefs = [["auto", "Automatique", "Suit le réglage de l'iPhone"], ["light", "Clair", ""], ["dark", "Sombre", ""]];
+    var themes = themeDefs.map(function (d, i) {
+      return { label: d[1], sub: d[2], hasSub: !!d[2], selected: theme === d[0], rowStyle: RG_ROW + "min-height:56px;" + line(i, themeDefs.length), pick: function () { set({ theme: d[0] }); } };
+    });
+
+    var boxes = RG_BOXES.map(function (b) {
+      return Object.assign({}, b, {
+        tg: tg("box_" + b.id, true),
+        statusColor: b.ok ? "#15803D" : "#9A3412",
+        err: !b.ok,
+        fix: function () { set({ page: "ajout", provider: b.id }); }
+      });
+    });
+
+    var provider = s.provider || null;
+    var providers = RG_PROVIDERS.map(function (pv) {
+      var on = provider === pv[0];
+      return {
+        label: pv[1], color: pv[2],
+        style: "display:flex;align-items:center;gap:10px;min-height:54px;padding:0 12px;border-radius:12px;font:inherit;font-size:15px;font-weight:600;color:#111317;cursor:pointer;text-align:left;background:#FFFFFF;" + (on ? "border:2px solid #1F6FEB;" : "border:2px solid transparent;"),
+        pick: function () { set({ provider: pv[0] }); }
+      };
+    });
+
+    var rules = s.rules || RG_RULES;
+    var pending = s.pending !== undefined ? s.pending : RG_PENDING;
+    var ruleItems = rules.map(function (r, i) {
+      return {
+        kindLabel: RG_KIND_LABEL[r.kind], value: r.value,
+        effectLabel: RG_EFFECTS.filter(function (e) { return e[0] === r.effect; })[0][1],
+        effectStyle: "font-size:12px;font-weight:600;border-radius:6px;padding:3px 8px;white-space:nowrap;flex-shrink:0;" + RG_EFFECT_STYLE[r.effect],
+        rowStyle: "display:flex;align-items:center;gap:10px;min-height:58px;padding:0 4px 0 14px;" + line(i, rules.length),
+        remove: function () { set({ rules: rules.filter(function (x) { return x.id !== r.id; }) }); self.toast("Règle supprimée"); }
+      };
+    });
+    var pendingItems = pending.map(function (q) {
+      return {
+        text: q.text, ask: q.ask,
+        accept: function () {
+          set({ pending: pending.filter(function (x) { return x.id !== q.id; }), rules: rules.concat([Object.assign({ id: q.id }, q.rule)]) });
+          self.toast("Règle validée");
+        },
+        refuse: function () { set({ pending: pending.filter(function (x) { return x.id !== q.id; }) }); self.toast("Suggestion refusée"); }
+      };
+    });
+
+    var newKind = s.newKind || "sender";
+    var newVal = s.newVal || "";
+    var newEffect = s.newEffect || "important";
+    var kinds = RG_KINDS.map(function (k) {
+      var on = newKind === k[0];
+      return { label: k[1], pick: function () { set({ newKind: k[0] }); }, style: "font:inherit;font-size:14px;font-weight:600;border:none;border-radius:9px;min-height:40px;cursor:pointer;" + (on ? "background:#FFFFFF;color:#111317;box-shadow:0 1px 3px rgba(0,0,0,0.12);" : "background:transparent;color:#5F6672;") };
+    });
+    var effects = RG_EFFECTS.map(function (e) {
+      var on = newEffect === e[0];
+      return { label: e[1], pick: function () { set({ newEffect: e[0] }); }, style: "font:inherit;font-size:14px;font-weight:600;border-radius:999px;min-height:40px;padding:0 16px;cursor:pointer;" + (on ? "background:#111317;color:#FFFFFF;border:1px solid #111317;" : "background:#FFFFFF;color:#3F4652;border:1px solid #E1E4EA;") };
+    });
+
+    var times = s.times || ["08:00", "13:00", "19:00"];
+    var timeItems = times.map(function (tm) { return { t: tm, remove: function () { set({ times: times.filter(function (x) { return x !== tm; }) }); } }; });
+    var dayState = s.days || { l: true, ma: true, me: true, j: true, v: true, s: true, d: true };
+    var days = RG_DAYS.map(function (d) {
+      var on = !!dayState[d[0]];
+      return {
+        label: d[1], name: d[2], aria: on ? "true" : "false",
+        style: "font:inherit;font-size:15px;font-weight:600;border:none;border-radius:10px;min-height:44px;cursor:pointer;" + (on ? "background:#111317;color:#FFFFFF;" : "background:#FFFFFF;color:#5F6672;"),
+        toggle: function () { var n = Object.assign({}, dayState); n[d[0]] = !on; set({ days: n }); }
+      };
+    });
+
+    var alertDefs = [["aTT", "Ouverture d'un TT+", true], ["aImp", "Mail important", true], ["aAct", "Mail à traiter", true], ["aSum", "Résumé après chaque analyse", false]];
+    var alertKinds = alertDefs.map(function (a, i) {
+      return { label: a[1], tg: tg(a[0], a[2]), rowStyle: "display:flex;align-items:center;gap:12px;min-height:54px;padding:0 14px;" + line(i, alertDefs.length) };
+    });
+
+    var parent = RG_PARENT[page];
+    return {
+      pg: pg, t: t, f: f, lockDelays: lockDelays,
+      pageTitle: RG_TITLES[page],
+      backLabel: page === "root" ? "Mails" : (parent ? RG_TITLES[parent] : "Profil"),
+      back: function () {
+        if (page === "root") { if (p.onClose) p.onClose(); return; }
+        set({ page: parent || "root" });
+      },
+      menu: menu,
+      themes: themes,
+      boxes: boxes,
+      goAjout: function () { set({ page: "ajout", provider: null }); },
+      providers: providers,
+      hasProvider: !!provider,
+      isOutlook: provider === "outlook",
+      isImap: provider === "imap",
+      needsPwd: !!provider && provider !== "outlook",
+      pwdLabel: provider === "imap" ? "Mot de passe" : "Mot de passe d'application",
+      providerHelp: provider ? RG_HELP[provider] : "",
+      submitBox: function () { set({ page: "boites", provider: null }); self.toast("Connexion réussie · boîte enregistrée"); },
+      rules: ruleItems,
+      pending: pendingItems,
+      hasPending: pendingItems.length > 0,
+      goRegleAjout: function () { set({ page: "regleAjout", newVal: "" }); },
+      kinds: kinds,
+      effects: effects,
+      newVal: newVal,
+      newPlaceholder: RG_KINDS.filter(function (k) { return k[0] === newKind; })[0][2],
+      onNewVal: function (e) { set({ newVal: e.target.value }); },
+      saveRule: function () {
+        if (!newVal.trim()) { self.toast("Écris d'abord la règle"); return; }
+        set({ rules: rules.concat([{ id: Date.now(), kind: newKind, value: newVal.trim(), effect: newEffect }]), page: "regles", newVal: "" });
+        self.toast("Règle ajoutée");
+      },
+      times: timeItems,
+      addTime: function () {
+        var v = f.newTime.value;
+        if (!v) return;
+        if (times.indexOf(v) >= 0) { self.toast("Cet horaire existe déjà"); return; }
+        set({ times: times.concat([v]).sort() });
+      },
+      days: days,
+      alertKinds: alertKinds,
+      testGotify: function () { self.toast("Notification de test envoyée"); },
+      reconnect: function () { self.toast("Reconnexion à Claude…"); },
+      saveAccount: function () { self.toast("Profil enregistré"); },
+      changePwd: function () { self.toast("Mot de passe modifié"); },
+      logoutOthers: function () { self.toast("Autres appareils déconnectés"); },
+      hasToast: !!s.toast,
+      toastMsg: s.toast || ""
+    };
+  }
+}
+</script>
+</body>
+</html>

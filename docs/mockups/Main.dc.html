@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Mail Pilot</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1F6FEB}a:hover{color:#1946B8}
+.mp-chips::-webkit-scrollbar{display:none}
+.mp-list::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #FFFFFF; font-family: Inter, system-ui, sans-serif; color: #111317; display: flex; flex-direction: column;">
+
+  <!-- ===================== ACCUEIL ===================== -->
+  <sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #F4F5F8;">
+      <header style="padding: 14px 16px 6px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; height: 44px;">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #5F6672;">
+            <span style="width: 7px; height: 7px; border-radius: 999px; background: #16A34A; display: block;"></span>
+            Claude · analysé à 08:00
+          </span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button onClick="{{openActions}}" aria-label="Actions manuelles" style="width: 44px; height: 44px; border-radius: 999px; border: none; background: #FFFFFF; color: #111317; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"></path></svg>
+            </button>
+            <button onClick="{{openProfile}}" aria-label="Profil et réglages" style="width: 44px; height: 44px; border-radius: 999px; border: none; background: #1F3A8A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;">M</button>
+          </div>
+        </div>
+        <h1 style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">Mes boîtes</h1>
+        <span style="font-size: 13px; color: #5F6672;">Prochaine analyse à 13:00</span>
+      </header>
+
+      <div class="mp-list" style="flex: 1; min-height: 0; overflow-y: auto; padding: 10px 16px 28px; display: flex; flex-direction: column; gap: 12px; scrollbar-width: none;">
+        <sc-for list="{{homeCards}}" as="h" hint-placeholder-count="5">
+          <button onClick="{{h.pick}}" style="width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; background: #FFFFFF; border: 1px solid #E6E9EE;">
+            <span style="display: flex; align-items: center; gap: 12px;">
+              <span style="width: 36px; height: 36px; border-radius: 10px; background: {{h.color}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 7l9 6 9-6"></path></svg>
+              </span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                <span style="font-size: 16px; font-weight: 600;">{{h.label}}</span>
+                <span style="font-size: 12px; color: #5F6672; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{h.sub}}</span>
+              </span>
+              <sc-if value="{{h.hasUnread}}" hint-placeholder-val="{{true}}">
+                <span style="font-size: 13px; font-weight: 600; color: #FFFFFF; background: #1F6FEB; border-radius: 999px; padding: 2px 9px; min-width: 12px; text-align: center;">{{h.unread}}</span>
+              </sc-if>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A0A6B1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+            </span>
+            <span style="display: flex; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid #F0F2F5;">
+              <sc-for list="{{h.prio}}" as="p" hint-placeholder-count="2">
+                <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0;">
+                  <span style="width: 6px; height: 6px; border-radius: 999px; background: {{p.dot}}; flex-shrink: 0; display: block;"></span>
+                  <span style="font-weight: 600; flex-shrink: 0;">{{p.label}}</span>
+                  <span style="color: #5F6672; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">{{p.text}}</span>
+                </span>
+              </sc-for>
+              <sc-if value="{{h.noPrio}}" hint-placeholder-val="{{false}}">
+                <span style="font-size: 13px; color: #5F6672;">Rien d'important à signaler</span>
+              </sc-if>
+            </span>
+          </button>
+        </sc-for>
+        <button onClick="{{addBox}}" style="display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border: 1.5px dashed #B9C6DD; border-radius: 16px; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #1F6FEB; cursor: pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+          Ajouter une boîte mail
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===================== LISTE ===================== -->
+  <sc-if value="{{isList}}" hint-placeholder-val="{{false}}">
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+      <header style="padding: 14px 16px 8px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; height: 44px;">
+          <sc-if value="{{notSelecting}}" hint-placeholder-val="{{true}}">
+            <button onClick="{{goHome}}" style="display: flex; align-items: center; gap: 2px; background: none; border: none; font: inherit; font-size: 16px; color: #1F6FEB; min-height: 44px; padding: 0 8px 0 0; cursor: pointer;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+              Boîtes
+            </button>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button onClick="{{startSelect}}" style="background: none; border: none; font: inherit; font-size: 16px; color: #1F6FEB; min-height: 44px; padding: 0 8px; cursor: pointer;">Sélectionner</button>
+              <button onClick="{{openActions}}" aria-label="Actions manuelles" style="width: 44px; height: 44px; border-radius: 999px; border: none; background: #F1F3F6; color: #111317; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"></path></svg>
+              </button>
+              <button onClick="{{openProfile}}" aria-label="Profil et réglages" style="width: 44px; height: 44px; border-radius: 999px; border: none; background: #1F3A8A; color: #FFFFFF; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;">M</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{selecting}}" hint-placeholder-val="{{false}}">
+            <button onClick="{{toggleAll}}" style="background: none; border: none; font: inherit; font-size: 16px; color: #1F6FEB; min-height: 44px; padding: 0 8px 0 0; cursor: pointer;">{{selAllLabel}}</button>
+            <button onClick="{{stopSelect}}" style="background: none; border: none; font: inherit; font-size: 16px; font-weight: 600; color: #1F6FEB; min-height: 44px; padding: 0 0 0 8px; cursor: pointer;">OK</button>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{notSelecting}}" hint-placeholder-val="{{true}}">
+          <button onClick="{{openFolders}}" style="align-self: flex-start; display: flex; flex-direction: column; align-items: flex-start; gap: 0; background: none; border: none; padding: 0; font: inherit; color: #111317; cursor: pointer; min-height: 44px; text-align: left;">
+            <span style="font-size: 13px; font-weight: 500; color: #5F6672;">{{boxLabel}}</span>
+            <span style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">{{folderLabel}}</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F6FEB" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+            </span>
+          </button>
+        </sc-if>
+        <sc-if value="{{selecting}}" hint-placeholder-val="{{false}}">
+          <span style="display: flex; flex-direction: column; min-height: 44px;">
+            <span style="font-size: 13px; font-weight: 500; color: #5F6672;">{{boxLabel}} · {{folderLabel}}</span>
+            <span style="font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">{{selTitle}}</span>
+          </span>
+        </sc-if>
+
+        <label style="display: flex; align-items: center; gap: 8px; background: #F1F3F6; border-radius: 10px; padding: 0 10px; height: 38px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5F6672" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+          <input placeholder="Rechercher" aria-label="Rechercher" style="flex: 1; border: none; background: transparent; font: inherit; font-size: 15px; color: #111317; outline: none;">
+        </label>
+
+        <div class="mp-chips" style="display: flex; gap: 6px; overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none;">
+          <sc-for list="{{chips}}" as="c" hint-placeholder-count="6">
+            <button onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button>
+          </sc-for>
+        </div>
+      </header>
+
+      <div class="mp-list" style="flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid #ECEEF1; scrollbar-width: none;">
+        <sc-if value="{{showPrio}}" hint-placeholder-val="{{true}}">
+          <div style="padding: 12px 16px 10px; border-bottom: 1px solid #ECEEF1;">
+            <button onClick="{{togglePrio}}" style="{{prioStyle}}">
+              <span style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #111317;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C2410C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+                  À ne pas manquer
+                  <span style="font-size: 11px; font-weight: 600; color: #FFFFFF; background: #C2410C; border-radius: 999px; padding: 1px 7px;">{{prioCount}}</span>
+                </span>
+                <span style="font-size: 13px; font-weight: 600; color: #1F6FEB;">{{prioAction}}</span>
+              </span>
+              <sc-for list="{{prioItems}}" as="p" hint-placeholder-count="3">
+                <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; min-width: 0;">
+                  <span style="width: 6px; height: 6px; border-radius: 999px; background: {{p.dot}}; flex-shrink: 0; display: block;"></span>
+                  <span style="font-weight: 600; flex-shrink: 0; color: #111317;">{{p.label}}</span>
+                  <span style="color: #5F6672; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">{{p.text}}</span>
+                </span>
+              </sc-for>
+            </button>
+          </div>
+        </sc-if>
+
+        <sc-for list="{{mails}}" as="m" hint-placeholder-count="7">
+          <div style="border-bottom: 1px solid #ECEEF1;">
+            <button onClick="{{m.tap}}" style="width: 100%; text-align: left; background: {{m.bg}}; border: none; font: inherit; color: inherit; padding: 10px 16px 10px 4px; display: flex; gap: 4px; cursor: pointer;">
+              <span style="width: 34px; display: flex; justify-content: center; padding-top: 4px; flex-shrink: 0;">
+                <sc-if value="{{m.showDot}}" hint-placeholder-val="{{true}}">
+                  <span style="width: 9px; height: 9px; border-radius: 999px; background: #1F6FEB; display: block; margin-top: 2px;"></span>
+                </sc-if>
+                <sc-if value="{{m.unsel}}" hint-placeholder-val="{{false}}">
+                  <span style="width: 22px; height: 22px; border-radius: 999px; border: 2px solid #C4C9D2; box-sizing: border-box; display: block;"></span>
+                </sc-if>
+                <sc-if value="{{m.sel}}" hint-placeholder-val="{{false}}">
+                  <span style="width: 22px; height: 22px; border-radius: 999px; background: #1F6FEB; display: flex; align-items: center; justify-content: center;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+                  </span>
+                </sc-if>
+              </span>
+              <span style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
+                <span style="display: flex; align-items: center; gap: 6px;">
+                  <span style="width: 8px; height: 8px; border-radius: 2px; background: {{m.boxColor}}; flex-shrink: 0; display: block;"></span>
+                  <span style="font-size: 15px; font-weight: {{m.weight}}; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{m.from}}</span>
+                  <span style="font-size: 13px; color: #5F6672; flex-shrink: 0;">{{m.time}}</span>
+                </span>
+                <span style="font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{m.subject}}</span>
+                <span style="font-size: 13px; color: #5F6672; line-height: 1.38; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;"><sc-if value="{{m.hasTag}}" hint-placeholder-val="{{true}}"><span style="{{m.tagStyle}}">{{m.tag}}</span></sc-if>{{m.preview}}</span>
+              </span>
+            </button>
+            <sc-if value="{{m.isOpen}}" hint-placeholder-val="{{false}}">
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 0 16px 12px 38px; background: #F4F6F9;">
+                <button onClick="{{m.open}}" style="font: inherit; font-size: 12px; font-weight: 600; min-height: 44px; border: none; border-radius: 10px; background: #FFFFFF; color: #111317; cursor: pointer;">Ouvrir</button>
+                <button onClick="{{m.archive}}" style="font: inherit; font-size: 12px; font-weight: 600; min-height: 44px; border: none; border-radius: 10px; background: #FFFFFF; color: #111317; cursor: pointer;">Archiver</button>
+                <button onClick="{{m.important}}" style="font: inherit; font-size: 12px; font-weight: 600; min-height: 44px; border: none; border-radius: 10px; background: #FFFFFF; color: #111317; cursor: pointer;">Important</button>
+                <button onClick="{{m.trash}}" style="font: inherit; font-size: 12px; font-weight: 600; min-height: 44px; border: none; border-radius: 10px; background: #FDECEC; color: #A61B1B; cursor: pointer;">Corbeille</button>
+              </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+          <div style="padding: 60px 24px; text-align: center; color: #5F6672; font-size: 14px;">Aucun mail ici.</div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{selecting}}" hint-placeholder-val="{{false}}">
+        <div style="flex-shrink: 0; border-top: 1px solid #ECEEF1; background: #FFFFFF; padding: 6px 8px 22px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));">
+          <button onClick="{{bulkRead}}" style="{{barBtn}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><path d="M8.5 12l2.5 2.5 4.5-5"></path></svg>
+            Lu
+          </button>
+          <button onClick="{{bulkImportant}}" style="{{barBtn}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.8-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.8z"></path></svg>
+            Important
+          </button>
+          <button onClick="{{bulkMove}}" style="{{barBtn}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><path d="M10 13h6"></path><path d="M13 10l3 3-3 3"></path></svg>
+            Déplacer
+          </button>
+          <button onClick="{{bulkArchive}}" style="{{barBtn}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h18v4H3z"></path><path d="M5 8v12h14V8"></path><path d="M10 12h4"></path></svg>
+            Archiver
+          </button>
+          <button onClick="{{bulkTrash}}" style="{{barBtnDanger}}">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg>
+            Corbeille
+          </button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- ===================== PANNEAUX ===================== -->
+  <sc-if value="{{showBackdrop}}" hint-placeholder-val="{{false}}">
+    <button onClick="{{closeSheet}}" aria-label="Fermer" style="position: absolute; inset: 0; border: none; background: rgba(17, 19, 23, 0.36); cursor: pointer;"></button>
+  </sc-if>
+
+  <sc-if value="{{showFolders}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 620px; background: #FFFFFF; border-radius: 18px 18px 0 0; padding: 8px 16px 28px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 -8px 30px rgba(0,0,0,0.12); box-sizing: border-box;">
+      <span style="align-self: center; width: 36px; height: 5px; border-radius: 999px; background: #D5D9E0; display: block; margin-bottom: 8px;"></span>
+      <span style="font-size: 15px; font-weight: 600; padding: 0 4px;">Dossiers · {{boxLabel}}</span>
+      <span style="font-size: 12px; color: #5F6672; padding: 2px 4px 10px;">{{folderNote}}</span>
+      <div class="mp-list" style="overflow-y: auto; display: flex; flex-direction: column; gap: 2px; scrollbar-width: none;">
+        <sc-for list="{{folders}}" as="f" hint-placeholder-count="6">
+          <sc-if value="{{f.isSection}}" hint-placeholder-val="{{false}}">
+            <span style="font-size: 12px; font-weight: 600; color: #5F6672; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 4px 4px;">{{f.label}}</span>
+          </sc-if>
+          <sc-if value="{{f.isFolder}}" hint-placeholder-val="{{true}}">
+            <button onClick="{{f.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px; border: none; border-radius: 12px; background: {{f.bg}}; font: inherit; color: #111317; cursor: pointer; text-align: left;">
+              <span style="width: 30px; height: 30px; border-radius: 8px; background: #F1F3F6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="{{f.iconColor}}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.icon}}"></path></svg>
+              </span>
+              <span style="flex: 1; font-size: 16px; font-weight: 500;">{{f.label}}</span>
+              <span style="font-size: 14px; color: #5F6672;">{{f.count}}</span>
+              <span style="width: 22px; display: flex; justify-content: center;">
+                <sc-if value="{{f.selected}}" hint-placeholder-val="{{false}}">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F6FEB" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>
+                </sc-if>
+              </span>
+            </button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showActions}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; background: #FFFFFF; border-radius: 18px 18px 0 0; padding: 8px 16px 28px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 -8px 30px rgba(0,0,0,0.12);">
+      <span style="align-self: center; width: 36px; height: 5px; border-radius: 999px; background: #D5D9E0; display: block; margin-bottom: 6px;"></span>
+      <span style="font-size: 13px; font-weight: 600; color: #5F6672; padding: 0 4px;">Lancer manuellement</span>
+      <button onClick="{{runAnalysis}}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; border-radius: 14px; background: #F4F6F9; font: inherit; color: #111317; cursor: pointer; text-align: left;">
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: #1F6FEB; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 600;">Lancer une analyse</span>
+          <span style="font-size: 13px; color: #5F6672;">Claude lit les nouveaux mails de {{boxScope}}</span>
+        </span>
+      </button>
+      <button onClick="{{clean}}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; border-radius: 14px; background: #F4F6F9; font: inherit; color: #111317; cursor: pointer; text-align: left;">
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: #C2410C; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6 7l1 13h10l1-13"></path><path d="M9 7V4h6v3"></path></svg>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 600;">Nettoyer pubs et spams</span>
+          <span style="font-size: 13px; color: #5F6672;">{{cleanLabel}}</span>
+        </span>
+      </button>
+      <button onClick="{{learn}}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border: none; border-radius: 14px; background: #F4F6F9; font: inherit; color: #111317; cursor: pointer; text-align: left;">
+        <span style="width: 36px; height: 36px; border-radius: 10px; background: #0F5C4D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 2px;">
+          <span style="font-size: 15px; font-weight: 600;">Lancer l'apprentissage</span>
+          <span style="font-size: 13px; color: #5F6672;">Relit tes mails ouverts et supprimés, met à jour le tri</span>
+        </span>
+      </button>
+      <span style="font-size: 12px; color: #5F6672; text-align: center; padding-top: 4px;">Prochaine analyse automatique à 13:00</span>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showProfile}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0;">
+      <dc-import name="Reglages" on-close="{{closeSheet}}" hint-size="390px,844px"></dc-import>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+    <div style="{{toastPos}}">
+      <span style="flex: 1; font-size: 14px; padding: 8px 0;">{{toastMsg}}</span>
+      <sc-if value="{{toastUndo}}" hint-placeholder-val="{{false}}">
+        <button onClick="{{undo}}" style="font: inherit; font-size: 14px; font-weight: 600; color: #8AB4FF; background: none; border: none; min-height: 44px; padding: 0 10px; cursor: pointer;">Annuler</button>
+      </sc-if>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startScreen":{"editor":"enum","options":["home","list"],"default":"home"},"startSheet":{"editor":"enum","options":["none","folders","actions","profile"],"default":"none"},"startBox":{"editor":"enum","options":["all","gmail","outlook","icloud","laposte"],"default":"all"},"startSelect":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+var MP_BOXES = [
+  { id: "all", label: "Toutes les boîtes", sub: "Vue unifiée de 4 boîtes", color: "#111317" },
+  { id: "gmail", label: "Gmail", sub: "[adresse]@gmail.com", color: "#D93025" },
+  { id: "outlook", label: "Outlook", sub: "[adresse]@outlook.fr", color: "#0F6CBD" },
+  { id: "icloud", label: "iCloud", sub: "[adresse]@icloud.com", color: "#3A9BDC" },
+  { id: "laposte", label: "La Poste", sub: "[adresse]@laposte.net", color: "#B88A00" }
+];
+var MP_ICON = {
+  inbox: "M3 13h5l2 3h4l2-3h5 M5 5h14l2 8v6H3v-6z",
+  drafts: "M4 20h4L19 9l-4-4L4 16z M14 6l4 4",
+  sent: "M22 2L11 13 M22 2l-7 20-4-9-9-4z",
+  junk: "M12 8v5 M12 16h.01 M7.9 2h8.2L22 7.9v8.2L16.1 22H7.9L2 16.1V7.9z",
+  trash: "M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3",
+  archive: "M3 4h18v4H3z M5 8v12h14V8 M10 12h4",
+  folder: "M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+};
+var MP_SYSTEM = [["inbox", "Réception"], ["drafts", "Brouillons"], ["sent", "Envoyés"], ["junk", "Indésirables"], ["archive", "Archives"], ["trash", "Corbeille"]];
+var MP_CUSTOM = {
+  gmail: [["g-factures", "Factures"], ["g-voyages", "Voyages"]],
+  outlook: [["o-projets", "Projets"]],
+  icloud: [],
+  laposte: [["l-admin", "Administratif"]]
+};
+var MP_CATS = [["all", "Tout"], ["important", "Important"], ["action", "À traiter"], ["tt", "TT+"], ["info", "Infos"], ["news", "Newsletters"], ["pub", "Pub"], ["spam", "Spam"]];
+var MP_TAGS = {
+  important: ["Important", "background:#FFF1E6;color:#9A3412"],
+  action: ["À traiter", "background:#E8F0FE;color:#1946B8"],
+  tt: ["TT+", "background:#0F5C4D;color:#FFFFFF"],
+  news: ["Newsletter", "background:#F1F2F4;color:#4B5160"],
+  pub: ["Pub", "background:#F1F2F4;color:#4B5160"],
+  spam: ["Spam", "background:#FDECEC;color:#A61B1B"]
+};
+var MP_DOT = { tt: "#0F5C4D", important: "#C2410C", action: "#1F6FEB" };
+var MP_MAILS = [
+  { id: 1, box: "outlook", folder: "inbox", from: "Service RH", time: "08:12", subject: "Ouverture TT+ jeudi 7 novembre", preview: "Télétravail possible jeudi pour toutes les équipes. À déclarer avant mercredi midi.", cat: "tt", unread: true },
+  { id: 2, box: "gmail", folder: "inbox", from: "Impôts", time: "07:41", subject: "Avis de taxe foncière disponible", preview: "Montant à régler avant le 15 novembre, paiement en ligne possible.", cat: "important", unread: true },
+  { id: 3, box: "icloud", folder: "inbox", from: "École Jean Moulin", time: "Hier", subject: "Réunion parents-professeurs", preview: "Inscription à un créneau demandée avant vendredi.", cat: "action", unread: true },
+  { id: 4, box: "laposte", folder: "inbox", from: "Mutuelle", time: "Hier", subject: "Remboursement effectué", preview: "Le remboursement de vos soins du 28/10 a été versé sur votre compte.", cat: "info", unread: false },
+  { id: 5, box: "gmail", folder: "inbox", from: "Banque", time: "Hier", subject: "Votre relevé d'octobre est disponible", preview: "Consultez votre relevé mensuel dans votre espace client.", cat: "info", unread: false },
+  { id: 6, box: "laposte", folder: "inbox", from: "Assurance habitation", time: "Lun.", subject: "Échéance de votre contrat le 30/11", preview: "Votre contrat arrive à échéance, pensez à vérifier vos garanties.", cat: "important", unread: true },
+  { id: 7, box: "outlook", folder: "inbox", from: "Tech Weekly", time: "Lun.", subject: "Les 10 articles de la semaine", preview: "Kubernetes, Python 3.14 et un retour sur la conférence de Lyon.", cat: "news", unread: true },
+  { id: 8, box: "gmail", folder: "inbox", from: "Promo Mode", time: "Lun.", subject: "-50 % ce week-end seulement", preview: "Profitez de nos offres exclusives sur toute la collection.", cat: "pub", unread: true },
+  { id: 9, box: "gmail", folder: "inbox", from: "Super Déco", time: "Dim.", subject: "Nouvelle collection d'hiver", preview: "Découvrez nos nouveautés pour la maison.", cat: "pub", unread: true },
+  { id: 10, box: "icloud", folder: "inbox", from: "Gagnant-Officiel", time: "Dim.", subject: "Vous avez gagné un smartphone !", preview: "Cliquez ici pour réclamer votre lot avant minuit.", cat: "spam", unread: true },
+  { id: 11, box: "laposte", folder: "inbox", from: "Suivi colis", time: "Dim.", subject: "Votre colis arrive demain", preview: "Livraison prévue entre 9 h et 13 h.", cat: "info", unread: false },
+  { id: 12, box: "outlook", folder: "sent", from: "À : Service RH", time: "Hier", subject: "Re: Planning de novembre", preview: "Bonjour, je confirme mes jours de présence pour novembre.", cat: "info", unread: false },
+  { id: 13, box: "gmail", folder: "drafts", from: "Brouillon", time: "Lun.", subject: "Réclamation colis non reçu", preview: "Bonjour, ma commande du 21 octobre n'est toujours pas arrivée…", cat: "info", unread: false },
+  { id: 14, box: "icloud", folder: "junk", from: "Crypto-Gains", time: "Sam.", subject: "Doublez votre capital en 7 jours", preview: "Investissement garanti, places limitées.", cat: "spam", unread: true },
+  { id: 15, box: "gmail", folder: "junk", from: "Pharma-Promo", time: "Sam.", subject: "Offre spéciale réservée", preview: "Livraison discrète et rapide.", cat: "spam", unread: true },
+  { id: 16, box: "gmail", folder: "g-factures", from: "Fournisseur d'énergie", time: "02/11", subject: "Votre facture de novembre", preview: "Montant prélevé le 12/11.", cat: "info", unread: true },
+  { id: 17, box: "laposte", folder: "archive", from: "Mairie", time: "28/10", subject: "Confirmation de rendez-vous", preview: "Votre rendez-vous pour le passeport est confirmé.", cat: "info", unread: false }
+];
+
+class Component extends DCLogic {
+  toast(msg, undo) {
+    this.setState({ toast: msg, toastUndo: !!undo });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 3500);
+  }
+  hide(ids, msg) {
+    var s = this.state || {};
+    this.setState({ hidden: (s.hidden || []).concat(ids), lastHidden: ids, openId: null, sheet: "none", selecting: false, selected: [] });
+    this.toast(msg, true);
+  }
+  componentWillUnmount() { clearTimeout(this._t); clearTimeout(this._t2); }
+  renderVals() {
+    var self = this;
+    var p = this.props;
+    var s = this.state || {};
+    var screen = s.screen !== undefined ? s.screen : (p.startScreen || "home");
+    var box = s.box !== undefined ? s.box : (p.startBox || "all");
+    var folder = s.folder || "inbox";
+    var cat = s.cat || "all";
+    var sheet = s.sheet !== undefined ? s.sheet : (p.startSheet || "none");
+    var selecting = s.selecting !== undefined ? s.selecting : !!p.startSelect;
+    var selected = s.selected !== undefined ? s.selected : (p.startSelect ? [2, 8, 9] : []);
+    var hidden = s.hidden || [];
+    var readIds = s.readIds || [];
+    var openId = s.openId || null;
+    var set = function (o) { self.setState(o); };
+    var boxOf = function (id) { return MP_BOXES.filter(function (b) { return b.id === id; })[0]; };
+    var isPrio = function (m) { return m.cat === "tt" || m.cat === "important" || m.cat === "action"; };
+    var isUnread = function (m) { return m.unread && readIds.indexOf(m.id) < 0; };
+
+    var visible = MP_MAILS.filter(function (m) { return hidden.indexOf(m.id) < 0; });
+    var inBoxAll = visible.filter(function (m) { return box === "all" || m.box === box; });
+    var inBox = inBoxAll.filter(function (m) { return m.folder === folder; });
+    var prioActive = cat === "priority";
+    var list = inBox.filter(function (m) { return cat === "all" || (prioActive ? isPrio(m) : m.cat === cat); });
+    var prio = folder === "inbox" ? inBox.filter(isPrio) : [];
+    var prioItem = function (m) { return { dot: MP_DOT[m.cat], label: m.cat === "tt" ? "TT+" : m.from, text: m.subject }; };
+
+    /* ---- Accueil ---- */
+    var homeCards = MP_BOXES.map(function (b) {
+      var inbox = visible.filter(function (m) { return m.folder === "inbox" && (b.id === "all" || m.box === b.id); });
+      var unread = inbox.filter(isUnread).length;
+      var pr = inbox.filter(isPrio).slice(0, 2).map(prioItem);
+      return {
+        label: b.label, sub: b.sub, color: b.color, unread: unread, hasUnread: unread > 0,
+        prio: pr, noPrio: pr.length === 0,
+        pick: function () { set({ screen: "list", box: b.id, folder: "inbox", cat: "all", openId: null, selecting: false, selected: [], sheet: "none" }); }
+      };
+    });
+
+    /* ---- Liste ---- */
+    var mails = list.map(function (m) {
+      var t = MP_TAGS[m.cat];
+      var isOpen = !selecting && openId === m.id;
+      var sel = selecting && selected.indexOf(m.id) >= 0;
+      return Object.assign({}, m, {
+        boxColor: boxOf(m.box).color,
+        weight: isUnread(m) ? "600" : "500",
+        showDot: !selecting && isUnread(m),
+        sel: sel,
+        unsel: selecting && !sel,
+        hasTag: !!t,
+        tag: t ? t[0] : "",
+        tagStyle: "font-size:11px;font-weight:600;border-radius:4px;padding:1px 6px;margin-right:6px;" + (t ? t[1] : ""),
+        bg: sel ? "#EEF4FF" : (isOpen ? "#F4F6F9" : "#FFFFFF"),
+        isOpen: isOpen,
+        tap: function () {
+          if (selecting) {
+            set({ selected: sel ? selected.filter(function (id) { return id !== m.id; }) : selected.concat([m.id]) });
+          } else {
+            set({ openId: isOpen ? null : m.id });
+          }
+        },
+        open: function () { set({ openId: null, readIds: readIds.concat([m.id]) }); self.toast("Ouverture dans l'app " + boxOf(m.box).label + "…"); },
+        archive: function () { self.hide([m.id], "Archivé"); },
+        trash: function () { self.hide([m.id], "Mis à la corbeille"); },
+        important: function () { set({ openId: null }); self.toast("Règle ajoutée : " + m.from + " = important"); }
+      });
+    });
+
+    var chips = MP_CATS.map(function (c) {
+      var n = inBox.filter(function (m) { return c[0] === "all" || m.cat === c[0]; }).length;
+      var on = cat === c[0];
+      return {
+        label: c[0] === "all" ? c[1] : c[1] + " " + n,
+        style: "flex-shrink:0;font:inherit;font-size:14px;font-weight:" + (on ? "600" : "500") + ";border:none;border-radius:999px;padding:0 14px;min-height:36px;cursor:pointer;white-space:nowrap;" + (on ? "background:#111317;color:#FFFFFF;" : "background:#F1F3F6;color:#3F4652;"),
+        pick: function () { set({ cat: c[0], openId: null }); }
+      };
+    });
+
+    /* ---- Dossiers (récupérés par boîte) ---- */
+    var folderLabelOf = function (id) {
+      var all = MP_SYSTEM.slice();
+      Object.keys(MP_CUSTOM).forEach(function (k) { all = all.concat(MP_CUSTOM[k]); });
+      var f = all.filter(function (x) { return x[0] === id; })[0];
+      return f ? f[1] : id;
+    };
+    var folderRow = function (f, isCustom) {
+      var n = inBoxAll.filter(function (m) { return m.folder === f[0] && isUnread(m); }).length;
+      var on = folder === f[0];
+      return {
+        isFolder: true, isSection: false, label: f[1], count: n > 0 ? n : "",
+        icon: isCustom ? MP_ICON.folder : MP_ICON[f[0]],
+        iconColor: f[0] === "junk" ? "#A61B1B" : "#3F4652",
+        selected: on, bg: on ? "#F4F6F9" : "transparent",
+        pick: function () { set({ folder: f[0], cat: "all", sheet: "none", openId: null, selecting: false, selected: [] }); }
+      };
+    };
+    var folders = MP_SYSTEM.map(function (f) { return folderRow(f, false); });
+    if (box !== "all" && MP_CUSTOM[box] && MP_CUSTOM[box].length) {
+      folders.push({ isFolder: false, isSection: true, label: "Dossiers personnels" });
+      folders = folders.concat(MP_CUSTOM[box].map(function (f) { return folderRow(f, true); }));
+    }
+
+    var junk = inBoxAll.filter(function (m) { return m.folder === "inbox" && (m.cat === "pub" || m.cat === "spam"); });
+    var listIds = list.map(function (m) { return m.id; });
+    var allSelected = listIds.length > 0 && listIds.every(function (id) { return selected.indexOf(id) >= 0; });
+    var nSel = selected.filter(function (id) { return listIds.indexOf(id) >= 0; }).length;
+    var barBase = "display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border:none;background:none;font:inherit;font-size:11px;font-weight:600;cursor:pointer;";
+    var requireSel = function (fn) { return function () { if (!nSel) { self.toast("Sélectionne au moins un mail"); return; } fn(); }; };
+    var selIds = function () { return selected.filter(function (id) { return listIds.indexOf(id) >= 0; }); };
+
+    return {
+      isHome: screen === "home",
+      isList: screen === "list",
+      homeCards: homeCards,
+      boxLabel: boxOf(box).label,
+      folderLabel: folderLabelOf(folder),
+      folderNote: box === "all" ? "Dossiers unifiés, récupérés automatiquement sur chaque boîte" : "Récupérés automatiquement depuis le serveur " + boxOf(box).label,
+      folders: folders,
+      chips: chips,
+      mails: mails,
+      isEmpty: mails.length === 0,
+      selecting: selecting,
+      notSelecting: !selecting,
+      selTitle: nSel === 0 ? "Aucun sélectionné" : nSel + (nSel > 1 ? " sélectionnés" : " sélectionné"),
+      selAllLabel: allSelected ? "Tout désélect." : "Tout sélect.",
+      barBtn: barBase + "color:" + (nSel ? "#1F6FEB" : "#A0A6B1") + ";",
+      barBtnDanger: barBase + "color:" + (nSel ? "#C81E1E" : "#A0A6B1") + ";",
+      showPrio: !selecting && (prio.length > 0 || prioActive),
+      prioCount: prio.length,
+      prioAction: prioActive ? "Tout afficher" : "Voir",
+      prioStyle: "width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:7px;padding:12px 14px;border-radius:14px;" + (prioActive ? "background:#FFF7F0;border:1px solid #F2C29C;" : "background:#FAFBFC;border:1px solid #E6E9EE;"),
+      prioItems: prio.slice(0, 3).map(prioItem),
+      togglePrio: function () { set({ cat: prioActive ? "all" : "priority", openId: null }); },
+      boxScope: box === "all" || screen === "home" ? "toutes les boîtes" : boxOf(box).label,
+      cleanLabel: junk.length ? junk.length + " mails → corbeille, annulable" : "Rien à nettoyer",
+      showFolders: sheet === "folders",
+      showActions: sheet === "actions",
+      showProfile: sheet === "profile",
+      showBackdrop: sheet === "folders" || sheet === "actions",
+      hasToast: !!s.toast,
+      toastMsg: s.toast || "",
+      toastUndo: !!s.toastUndo,
+      toastPos: "position:absolute;left:16px;right:16px;bottom:" + (selecting ? "92px" : "28px") + ";background:#111317;color:#FFFFFF;border-radius:14px;padding:6px 6px 6px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.2);",
+      goHome: function () { set({ screen: "home", sheet: "none", selecting: false, selected: [], openId: null }); },
+      openFolders: function () { set({ sheet: "folders" }); },
+      openActions: function () { set({ sheet: "actions" }); },
+      openProfile: function () { set({ sheet: "profile" }); },
+      closeSheet: function () { set({ sheet: "none" }); },
+      startSelect: function () { set({ selecting: true, selected: [], openId: null }); },
+      stopSelect: function () { set({ selecting: false, selected: [] }); },
+      toggleAll: function () { set({ selected: allSelected ? [] : listIds }); },
+      bulkRead: requireSel(function () { set({ readIds: readIds.concat(selIds()), selecting: false, selected: [] }); self.toast(nSel + " marqué(s) comme lu(s)"); }),
+      bulkImportant: requireSel(function () { set({ selecting: false, selected: [] }); self.toast(nSel + " expéditeur(s) ajouté(s) aux importants"); }),
+      bulkMove: requireSel(function () { self.toast("Choix du dossier de destination (à venir)"); }),
+      bulkArchive: requireSel(function () { self.hide(selIds(), nSel + " mail(s) archivé(s)"); }),
+      bulkTrash: requireSel(function () { self.hide(selIds(), nSel + " mail(s) mis à la corbeille"); }),
+      addBox: function () { self.toast("Assistant d'ajout de boîte (à venir)"); },
+      runAnalysis: function () {
+        set({ sheet: "none" });
+        self.toast("Analyse lancée…");
+        clearTimeout(self._t2);
+        self._t2 = setTimeout(function () { self.toast("Analyse terminée · rien de nouveau d'important"); }, 2200);
+      },
+      clean: function () {
+        if (!junk.length) { set({ sheet: "none" }); self.toast("Rien à nettoyer"); return; }
+        self.hide(junk.map(function (m) { return m.id; }), junk.length + " pubs et spams mis à la corbeille");
+      },
+      learn: function () { set({ sheet: "none" }); self.toast("Apprentissage lancé · règles mises à jour"); },
+      reconnect: function () { self.toast("Reconnexion à Claude…"); },
+      undo: function () {
+        var last = s.lastHidden || [];
+        set({ hidden: hidden.filter(function (id) { return last.indexOf(id) < 0; }), toast: null });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
