@@ -10,7 +10,7 @@ const FRAME_CSS =
   "body{margin:12px;font:15px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111317;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{max-width:100%}";
 
 const frameDoc = (html: string) =>
-  `<!doctype html><html><head><meta charset="utf-8"><style>${FRAME_CSS}</style></head><body>${html}</body></html>`;
+  `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>${FRAME_CSS}</style></head><body>${html}</body></html>`;
 
 export default function Reader({ id, backTo }: { id: number; backTo: string | null }) {
   const qc = useQueryClient();
@@ -58,7 +58,7 @@ export default function Reader({ id, backTo }: { id: number; backTo: string | nu
             {tag && <span className={`tag tag-${data.category}`}>{tag}</span>}
           </div>
           {data.body_html ? (
-            <iframe className="reader-frame" title="Contenu du mail" sandbox="" srcDoc={frameDoc(data.body_html)} />
+            <iframe className="reader-frame" title="Contenu du mail" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerPolicy="no-referrer" srcDoc={frameDoc(data.body_html)} />
           ) : (
             <pre className="reader-text">{data.body_text ?? ""}</pre>
           )}

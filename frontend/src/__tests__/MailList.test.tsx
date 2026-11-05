@@ -188,4 +188,18 @@ describe("MailList", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("list_selection_raises_toast_offset", async () => {
+    mockApi({});
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<App />, "/box/all/inbox");
+    await screen.findByText("Promo ce week-end");
+    const get = () => document.documentElement.style.getPropertyValue("--toast-bottom");
+    expect(get()).toBe("");
+    await user.click(screen.getByRole("button", { name: "Sélectionner" }));
+    expect(get()).toBe("92px");
+    await user.click(screen.getByRole("button", { name: "OK" }));
+    expect(get()).toBe("");
+    unmount();
+  });
 });

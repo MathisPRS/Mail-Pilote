@@ -18,7 +18,10 @@ describe("Reader", () => {
     expect(screen.getByRole("heading", { name: "Avis de taxe" })).toBeInTheDocument();
     expect(screen.getByText(/Impôts/)).toBeInTheDocument();
     const frame = screen.getByTitle("Contenu du mail") as HTMLIFrameElement;
-    expect(frame.getAttribute("sandbox")).toBe("");
+    const sandbox = frame.getAttribute("sandbox") ?? "";
+    expect(sandbox).toContain("allow-popups");
+    for (const bad of ["allow-scripts", "allow-same-origin", "allow-forms"]) expect(sandbox).not.toContain(bad);
+    expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
     expect(frame.getAttribute("srcdoc")).toContain("Corps nettoyé");
     expect(screen.getByText("avis.pdf")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ouvrir l'app" })).toHaveAttribute("href", "googlegmail://");

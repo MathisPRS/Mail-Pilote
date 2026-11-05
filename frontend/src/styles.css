@@ -103,7 +103,7 @@ button, input { font: inherit; color: inherit; }
 /* Toast */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(16px + var(--safe-bottom)); z-index: 100;
+  bottom: calc(var(--toast-bottom, 16px) + var(--safe-bottom)); z-index: 100;
   display: flex; align-items: center; gap: 12px;
   max-width: min(480px, calc(100vw - 32px));
   padding: 10px 14px; border-radius: var(--radius-md);

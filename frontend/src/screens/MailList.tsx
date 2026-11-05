@@ -35,6 +35,14 @@ export default function MailList({ account, folder, activeId }: Props) {
     return () => clearTimeout(t);
   }, [draft]);
 
+  // Pendant la sélection, le toast se place au-dessus de la barre d'actions (mockup : 92 px).
+  useEffect(() => {
+    if (!selecting) return;
+    const root = document.documentElement.style;
+    root.setProperty("--toast-bottom", "92px");
+    return () => root.removeProperty("--toast-bottom");
+  }, [selecting]);
+
   const boxes = useQuery({ queryKey: ["boxes"], queryFn: () => apiGet<BoxSummary[]>("/api/boxes/summary") });
   const folders = useQuery({ queryKey: ["folders", account], queryFn: () => apiGet<Folder[]>(`/api/folders?account=${encodeURIComponent(account)}`) });
   const messages = useInfiniteQuery({
