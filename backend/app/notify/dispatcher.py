@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.crypto import decrypt
-from app.models import KV, Message, PushSubscription
+from app.models import KV, Folder, Message, PushSubscription
 from app.notify import gotify, webpush
 from app.settings_store import AlertSettings, get_alerts
 
@@ -86,6 +86,9 @@ async def dispatch_alerts(db: Session, now: datetime | None = None) -> int:
     quiet = alerts.quiet_enabled and is_quiet(local, alerts.quiet_from, alerts.quiet_to)
     pending = db.scalars(
         select(Message)
+        .join(Folder, Folder.id == Message.folder_id)
+        # seulement les mails encore non lus et encore dans la boîte de réception
+        .where(Folder.role == "inbox", Message.seen.is_(False))
         .where(Message.priority.is_(True), Message.alerted_at.is_(None))
         .where(Message.category.in_(TYPE_FLAG), Message.created_at >= now - RECENT)
         .order_by(Message.created_at)

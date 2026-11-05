@@ -223,3 +223,16 @@ async def test_stored_disallowed_endpoint_skipped_and_deleted(db, monkeypatch):
     await dispatcher.send_to_channels(db, get_alerts(db), "t", "b", "/", 5)
     assert called == []
     assert db.query(PushSubscription).count() == 0
+
+
+async def test_only_unseen_inbox_mails_are_alerted(db, folder, sent):
+    """Lu entre-temps ou sorti de la boîte de réception : plus d'alerte."""
+    configure(db)
+    archive = Folder(account_id=folder.account_id, path="Archive", role="archive", display_name="Archive")
+    db.add(archive)
+    db.commit()
+    mk(db, folder, seen=True)
+    mk(db, archive)
+    keep = mk(db, folder)
+    assert await dispatch_alerts(db, now=NOON) == 1
+    assert sent["gotify"][0][5] == f"/mail/{keep.id}"
