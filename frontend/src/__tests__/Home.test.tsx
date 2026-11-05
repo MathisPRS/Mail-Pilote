@@ -1,8 +1,11 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { vi } from "vitest";
 import App from "../App";
 import { mockApi, setViewportWide } from "../test-fixtures";
 import { jsonResponse, renderWithProviders } from "../test-utils";
+
+const RUN = { id: 9, kind: "light", trigger: "manual", status: "ok", started_at: "2026-11-05T07:00:00Z", finished_at: "2026-11-05T07:01:00Z", mails_count: 2, error: null };
 
 describe("Home", () => {
   beforeEach(() => setViewportWide(false));
@@ -44,5 +47,45 @@ describe("Home", () => {
     renderWithProviders(<App />, "/");
     await user.click(await screen.findByRole("button", { name: "Profil et réglages" }));
     expect(await screen.findByRole("heading", { name: "Profil" })).toBeInTheDocument();
+  });
+
+  it("home_add_box_opens_new_box_form", async () => {
+    mockApi({});
+    const user = userEvent.setup();
+    renderWithProviders(<App />, "/");
+    await user.click(await screen.findByRole("button", { name: "Ajouter une boîte mail" }));
+    expect(await screen.findByRole("heading", { name: "Nouvelle boîte" })).toBeInTheDocument();
+  });
+
+  it("home_shows_analysis_in_progress", async () => {
+    mockApi({ "GET /api/runs/latest": { light: { ...RUN, status: "running", finished_at: null }, full: null, next_full_at: null, next_light_at: null } });
+    renderWithProviders(<App />, "/");
+    expect(await screen.findByText("Analyse en cours…")).toBeInTheDocument();
+  });
+
+  it("home_polls_running_run_and_refreshes_lists_when_done", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let running = true;
+      const calls = mockApi({
+        "GET /api/runs/latest": () =>
+          jsonResponse({ light: running ? { ...RUN, status: "running", finished_at: null } : RUN, full: null, next_full_at: null, next_light_at: null }),
+      });
+      renderWithProviders(<App />, "/");
+      expect(await screen.findByText("Analyse en cours…")).toBeInTheDocument();
+      const boxesBefore = calls.filter((c) => c.path === "/api/boxes/summary").length;
+      const runsBefore = calls.filter((c) => c.path === "/api/runs/latest").length;
+      await act(() => vi.advanceTimersByTimeAsync(3100));
+      expect(calls.filter((c) => c.path === "/api/runs/latest").length).toBeGreaterThan(runsBefore);
+      running = false;
+      await act(() => vi.advanceTimersByTimeAsync(3100));
+      expect(await screen.findByText("Claude · analysé à 08:01")).toBeInTheDocument();
+      await waitFor(() => expect(calls.filter((c) => c.path === "/api/boxes/summary").length).toBeGreaterThan(boxesBefore));
+      const after = calls.filter((c) => c.path === "/api/runs/latest").length;
+      await act(() => vi.advanceTimersByTimeAsync(10_000));
+      expect(calls.filter((c) => c.path === "/api/runs/latest").length).toBe(after); // plus de sondage
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

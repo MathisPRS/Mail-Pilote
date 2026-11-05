@@ -6,6 +6,17 @@ from app.mail import accounts_routes, imap
 from app.models import MailAccount
 
 
+REAL_START = getattr(accounts_routes, "start_first_analysis", None)
+
+
+@pytest.fixture(autouse=True)
+def first_analysis(monkeypatch):
+    """Jamais de vraie synchro IMAP en test : le lancement de l'analyse est enregistré, pas exécuté."""
+    started = []
+    monkeypatch.setattr(accounts_routes, "start_first_analysis", lambda: started.append("light"), raising=False)
+    return started
+
+
 @pytest.fixture
 def calls(monkeypatch):
     recorded = []
@@ -168,3 +179,41 @@ def test_max_lengths_and_empty_imap_host(auth_client, calls):
     assert _post(auth_client, label="x" * 61).status_code == 422
     assert _post(auth_client, password="x" * 1025).status_code == 422
     assert _post(auth_client, provider="imap", imap_host="  ").status_code == 422
+
+
+def test_new_box_starts_background_light_run(auth_client, calls, monkeypatch):
+    """Premier lancement : ajouter une boîte synchronise et analyse aussitôt (sans attendre la route)."""
+    import asyncio
+
+    from app.analysis import jobs
+    from app.models import AnalysisRun, utcnow
+
+    monkeypatch.setattr(accounts_routes, "start_first_analysis", REAL_START)
+    started = []
+
+    async def fake_light(s, trigger="schedule"):
+        started.append(trigger)
+        r = AnalysisRun(kind="light", trigger=trigger, status="running")
+        s.add(r)
+        s.commit()
+        await asyncio.sleep(0)
+        r.status, r.finished_at = "ok", utcnow()
+        s.commit()
+        return r
+
+    monkeypatch.setattr(jobs, "run_light", fake_light)
+    assert _post(auth_client).status_code == 201
+    for _ in range(50):  # la tâche de fond tourne sur la boucle du serveur de test
+        latest = auth_client.get("/api/runs/latest").json()
+        if latest["light"]:
+            break
+    assert started == ["manual"] and latest["light"]["trigger"] == "manual"
+
+
+def test_failed_box_creation_starts_nothing(auth_client, monkeypatch, first_analysis):
+    def boom(*a):
+        raise imap.MailAuthError("x")
+
+    monkeypatch.setattr(accounts_routes, "test_connection", boom)
+    assert _post(auth_client).status_code == 400
+    assert first_analysis == []

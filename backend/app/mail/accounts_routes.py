@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.api import runs as runs_api
 from app.auth.deps import current_user
 from app.crypto import encrypt
 from app.db import get_db
@@ -100,6 +101,11 @@ def list_accounts(db: Session = Depends(get_db)) -> list[AccountOut]:
     return [AccountOut.of(a) for a in rows]
 
 
+def start_first_analysis() -> None:
+    """Nouvelle boîte : synchro + vérification légère tout de suite, en tâche de fond."""
+    runs_api.start_background("light")
+
+
 @router.post("", status_code=201)
 async def create_account(body: AccountCreate, db: Session = Depends(get_db)) -> AccountOut:
     if body.provider == "imap":
@@ -126,6 +132,7 @@ async def create_account(body: AccountCreate, db: Session = Depends(get_db)) -> 
     db.add(acc)
     db.commit()
     db.refresh(acc)
+    start_first_analysis()
     return AccountOut.of(acc)
 
 

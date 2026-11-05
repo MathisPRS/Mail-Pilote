@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthStatus } from "./api";
+import { RunWatcher } from "./hooks/useLatestRuns";
 import Home from "./screens/Home";
 import Login from "./screens/Login";
 import MailShell from "./screens/MailShell";
@@ -18,7 +19,12 @@ function RequireAuth() {
   if (status.isError || !status.data.setup_done || !status.data.authenticated) {
     return <Navigate to="/login" replace />;
   }
-  return <Outlet />;
+  return (
+    <>
+      <RunWatcher />
+      <Outlet />
+    </>
+  );
 }
 
 export default function App() {

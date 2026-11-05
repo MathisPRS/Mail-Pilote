@@ -44,6 +44,14 @@ async def _background(kind: str) -> None:
         log.exception("run %s manuel en échec", kind)
 
 
+def start_background(kind: str) -> asyncio.Task:
+    """Lance une session d'analyse manuelle en tâche de fond (la requête n'attend pas)."""
+    task = asyncio.create_task(_background(kind))
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+    return task
+
+
 def _running(db: Session) -> AnalysisRun | None:
     db.expire_all()
     return db.scalar(select(AnalysisRun).where(AnalysisRun.status == "running").order_by(AnalysisRun.id.desc()))
@@ -55,9 +63,7 @@ async def start_run(body: RunIn, db: Session = Depends(get_db)) -> dict:
     if running is not None:  # une session est déjà en cours : on renvoie celle-là
         return run_dict(running)
     before = db.scalar(select(AnalysisRun.id).order_by(AnalysisRun.id.desc()).limit(1)) or 0
-    task = asyncio.create_task(_background(body.kind))
-    _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
+    task = start_background(body.kind)
     for _ in range(100):  # la ligne du run est créée dès le démarrage de la tâche
         await asyncio.sleep(0.02)
         db.expire_all()

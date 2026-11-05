@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { mockApi, setViewportWide } from "../test-fixtures";
@@ -41,8 +41,11 @@ describe("Ajout de boîte", () => {
     await user.type(screen.getByLabelText("Adresse e-mail"), "x@laposte.net");
     await user.type(screen.getByLabelText("Serveur IMAP"), "imap.laposte.net");
     await user.type(screen.getByLabelText("Mot de passe"), "pw");
+    const runsBefore = calls.filter((c) => c.path === "/api/runs/latest").length;
     await user.click(screen.getByRole("button", { name: "Tester et ajouter" }));
     expect(await screen.findByRole("heading", { name: "Boîtes mail" })).toBeInTheDocument();
+    // l'ajout lance une analyse côté serveur : l'état des runs est relu (et sondé s'il tourne)
+    await waitFor(() => expect(calls.filter((c) => c.path === "/api/runs/latest").length).toBeGreaterThan(runsBefore));
     expect(calls.find((c) => c.method === "POST")!.body).toEqual({ provider: "imap", email: "x@laposte.net", password: "pw", imap_host: "imap.laposte.net", imap_port: 993 });
   });
 });

@@ -6,16 +6,24 @@ import BoxCard from "../components/BoxCard";
 import { ActionsButton, ProfileButton } from "../components/HeaderButtons";
 import Icon from "../components/Icon";
 import { formatClock, parseDate } from "../format";
+import { isRunning, useLatestRuns } from "../hooks/useLatestRuns";
 import ActionsSheet from "../sheets/ActionsSheet";
 import type { BoxSummary, ClaudeStatus, LatestRuns } from "../types";
 
 function ClaudeState() {
   const status = useQuery({ queryKey: ["claude-status"], queryFn: () => apiGet<ClaudeStatus>("/api/claude/status") });
-  const runs = useQuery({ queryKey: ["runs", "latest"], queryFn: () => apiGet<LatestRuns>("/api/runs/latest") });
+  const runs = useLatestRuns();
   if (status.isPending) return <span className="claude-state" />;
   if (status.data && !status.data.connected) {
     return (
       <span className="claude-state warn"><span className="dot" style={{ background: "#C2410C" }} />Claude déconnecté</span>
+    );
+  }
+  if (isRunning(runs.data)) {
+    return (
+      <span className="claude-state" role="status">
+        <span className="dot" style={{ background: "#1F6FEB" }} />Analyse en cours…
+      </span>
     );
   }
   const finished = [runs.data?.full?.finished_at, runs.data?.light?.finished_at]
@@ -39,7 +47,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [sheet, setSheet] = useState(false);
   const boxes = useQuery({ queryKey: ["boxes"], queryFn: () => apiGet<BoxSummary[]>("/api/boxes/summary") });
-  const runs = useQuery({ queryKey: ["runs", "latest"], queryFn: () => apiGet<LatestRuns>("/api/runs/latest") });
+  const runs = useLatestRuns();
   const next = nextRun(runs.data);
 
   return (
@@ -68,7 +76,7 @@ export default function Home() {
           ))}
         </div>
         {boxes.data && (
-          <button type="button" className="add-box" onClick={() => navigate("/settings")}>
+          <button type="button" className="add-box" onClick={() => navigate("/settings/boxes/new")}>
             <Icon name="plus" size={16} stroke="currentColor" width={2.4} />
             Ajouter une boîte mail
           </button>

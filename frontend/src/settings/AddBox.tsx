@@ -29,6 +29,7 @@ export default function AddBox() {
       setPassword("");
       await client.invalidateQueries({ queryKey: ["accounts"] });
       void client.invalidateQueries({ queryKey: ["boxes"] });
+      void client.invalidateQueries({ queryKey: ["runs"] }); // synchro + analyse lancées côté serveur
       toast("Connexion réussie · boîte enregistrée");
       navigate("/settings/boxes", { replace: true });
     },
