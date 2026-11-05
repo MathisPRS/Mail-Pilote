@@ -1,3 +1,5 @@
+import pytest
+
 from app.crypto import encrypt
 from app.models import PushSubscription
 from app.notify import gotify, webpush
@@ -67,3 +69,30 @@ def test_test_webpush_ok(auth_client, db, monkeypatch):
     r = auth_client.post("/api/alerts/test", json={"channel": "webpush"})
     assert r.status_code == 200
     assert seen[0]["title"] == "Mail Pilot · Test"
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://fcm.googleapis.com/x",
+        "https://127.0.0.1/x",
+        "https://localhost/x",
+        "https://169.254.169.254/latest",
+        "https://10.0.0.5/x",
+        "https://[::1]/x",
+        "https://fcm.googleapis.com/" + "a" * 2100,
+    ],
+)
+def test_subscribe_rejects_unsafe_endpoint(auth_client, endpoint):
+    body = {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}
+    assert auth_client.post("/api/push/subscribe", json=body).status_code == 422
+
+
+def test_subscribe_rejects_oversized_keys(auth_client):
+    body = {"endpoint": "https://fcm.googleapis.com/x", "keys": {"p256dh": "k" * 257, "auth": "a"}}
+    assert auth_client.post("/api/push/subscribe", json=body).status_code == 422
+
+
+def test_subscribe_accepts_apple_endpoint(auth_client):
+    body = {"endpoint": "https://web.push.apple.com/QWxs", "keys": {"p256dh": "k", "auth": "a"}}
+    assert auth_client.post("/api/push/subscribe", json=body).status_code == 204

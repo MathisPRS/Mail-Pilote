@@ -96,13 +96,12 @@ async def test_sends_with_content_and_marks_alerted(db, folder, sent):
 
 async def test_titles_and_priority(db, folder, sent):
     configure(db)
+    mk(db, folder, category="tt", subject="Jeudi TT+")
     mk(db, folder, category="important")
     mk(db, folder, category="action")
-    await dispatch_alerts(db, now=NOON)
-    got = sorted((c[2], c[4]) for c in sent["gotify"])
-    assert got == [("Important · Alice", 5), ("À traiter · Alice", 5)] or got == sorted(
-        [("Important · Alice", 5), ("À traiter · Alice", 5)]
-    )
+    assert await dispatch_alerts(db, now=NOON) == 3
+    got = {c[2]: c[4] for c in sent["gotify"]}
+    assert got == {"TT+ · Jeudi TT+": 8, "Important · Alice": 5, "À traiter · Alice": 5}
 
 
 async def test_no_double_alert(db, folder, sent):

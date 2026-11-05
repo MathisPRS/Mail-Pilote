@@ -1,8 +1,10 @@
+import ipaddress
 from typing import Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,13 +18,30 @@ router = APIRouter(prefix="/api", tags=["notify"], dependencies=[Depends(current
 
 
 class Keys(BaseModel):
-    p256dh: str = Field(min_length=1)
-    auth: str = Field(min_length=1)
+    p256dh: str = Field(min_length=1, max_length=256)
+    auth: str = Field(min_length=1, max_length=256)
 
 
 class SubscribeIn(BaseModel):
-    endpoint: str = Field(min_length=1)
+    endpoint: str = Field(min_length=1, max_length=2048)
     keys: Keys
+
+    @field_validator("endpoint")
+    @classmethod
+    def _public_https(cls, v: str) -> str:
+        # le serveur POSTe vers cet endpoint : refuser tout ce qui vise le réseau interne (SSRF)
+        if not v.startswith("https://"):
+            raise ValueError("endpoint https requis")
+        host = (urlsplit(v).hostname or "").lower()
+        if not host or host == "localhost" or host.endswith(".localhost"):
+            raise ValueError("endpoint non autorisé")
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return v  # nom d'hôte public
+        if not ip.is_global:
+            raise ValueError("endpoint non autorisé")
+        return v
 
 
 class TestIn(BaseModel):
