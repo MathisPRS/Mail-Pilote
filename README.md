@@ -21,17 +21,23 @@ Jeton Claude : sur une machine où Claude Code est installé, lance `claude setu
 
 `./data` doit appartenir à l'utilisateur du conteneur (uid 1000 par défaut). Si ton utilisateur hôte a un autre uid, renseigne `MP_UID` / `MP_GID` dans `.env` (valeurs de `id -u` / `id -g`).
 
+Cet uid n'a pas besoin d'exister dans l'image : le point d'entrée (`docker/entrypoint.sh`) lui fournit une entrée utilisateur fictive via `nss_wrapper` (requise par le CLI Claude, qui lit l'utilisateur courant), avec `HOME=/data/claude-home`.
+
 ## Premier lancement
 
 ```bash
+mkdir -p data          # créé par toi (et non par Docker, qui le créerait en root)
+ls -ldn data           # propriétaire = MP_UID:MP_GID du .env (1000:1000 par défaut)
 docker compose up -d --build
 ```
 
+Si `./data` existe déjà avec un autre propriétaire : `sudo chown -R "$(id -u):$(id -g)" data` (avec `MP_UID`/`MP_GID` = `id -u`/`id -g`).
+
 1. Ouvre <http://localhost:8000> (avec `MP_PUBLIC_ORIGIN=http://localhost:8000` dans `.env`).
 2. Crée le compte.
-3. Ajoute une boîte mail.
-4. Colle le jeton Claude dans Réglages › Claude (sauf s'il est déjà dans `CLAUDE_CODE_OAUTH_TOKEN`).
-5. Lance une analyse.
+3. Colle le jeton Claude dans Réglages › Claude (sauf s'il est déjà dans `CLAUDE_CODE_OAUTH_TOKEN`).
+4. Ajoute une boîte mail : la synchronisation et une première analyse démarrent aussitôt (« Analyse en cours… » en haut à gauche de l'accueil).
+5. Pour un tri complet immédiat : bouton Actions › « Lancer une analyse ».
 
 Logs : `docker compose logs -f`. Arrêt : `docker compose down`.
 

@@ -91,6 +91,20 @@ async def test_never_passes_api_key(fake_claude, monkeypatch):
     assert "CLAUDE_CODE_OAUTH_TOKEN" not in env
 
 
+async def test_forwards_nss_wrapper_env(fake_claude, monkeypatch):
+    """Uid sans entrée passwd (MP_UID de l'hôte) : l'entrypoint active nss_wrapper ; le CLI (Node,
+    os.userInfo()) doit en hériter malgré l'environnement minimal."""
+    d = fake_claude('{"is_error":false,"structured_output":{"ok":true}}')
+    monkeypatch.setenv("NSS_WRAPPER_PASSWD", "/tmp/mp-nss/passwd")
+    monkeypatch.setenv("NSS_WRAPPER_GROUP", "/tmp/mp-nss/group")
+    monkeypatch.setenv("LD_PRELOAD", "libnss_wrapper.so")
+    await call()
+    env = (d / "env.txt").read_text()
+    assert "NSS_WRAPPER_PASSWD=/tmp/mp-nss/passwd" in env
+    assert "NSS_WRAPPER_GROUP=/tmp/mp-nss/group" in env
+    assert "LD_PRELOAD=libnss_wrapper.so" in env
+
+
 async def test_passes_oauth_token_when_set(fake_claude, monkeypatch):
     d = fake_claude('{"is_error":false,"structured_output":{"ok":true}}')
     monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "tok123")

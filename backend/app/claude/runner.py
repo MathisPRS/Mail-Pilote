@@ -41,12 +41,19 @@ def _resolve_token() -> str | None:
     return settings.claude_oauth_token
 
 
+# posés par docker/entrypoint.sh quand l'uid n'a pas d'entrée passwd (os.userInfo() du CLI)
+_NSS_WRAPPER_VARS = ("LD_PRELOAD", "NSS_WRAPPER_PASSWD", "NSS_WRAPPER_GROUP")
+
+
 def _build_env(home: str, token_override: str | None = None) -> dict[str, str]:
     env = {
         "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
         "HOME": home,
         "LANG": os.environ.get("LANG", "C.UTF-8"),
     }
+    for var in _NSS_WRAPPER_VARS:
+        if os.environ.get(var):
+            env[var] = os.environ[var]
     token = token_override or _resolve_token()
     if token:
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token

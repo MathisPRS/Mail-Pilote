@@ -15,6 +15,11 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && npm i -g @anthropic-ai/claude-code@2.1.318 \
  && npm cache clean --force
 
+# nss_wrapper : entrée passwd fictive pour un MP_UID sans compte dans l'image (docker/entrypoint.sh)
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libnss-wrapper \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin mailpilot \
  && mkdir /data && chown 1000:1000 /data
 
@@ -23,6 +28,7 @@ COPY backend/pyproject.toml ./
 COPY backend/app ./app
 RUN pip install --no-cache-dir .
 COPY --from=front /build/dist /app/frontend/dist
+COPY --chmod=755 docker/entrypoint.sh /app/docker/entrypoint.sh
 
 ENV DATA_DIR=/data \
     MP_FRONTEND_DIST=/app/frontend/dist \
@@ -32,4 +38,5 @@ USER 1000
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/api/health', timeout=4)"
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["uvicorn","app.main:create_app","--factory","--host","0.0.0.0","--port","8000","--no-proxy-headers"]
