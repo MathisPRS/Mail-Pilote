@@ -132,3 +132,39 @@ def test_delete(auth_client, calls):
 def test_requires_auth(client):
     assert client.get("/api/accounts").status_code == 401
     assert client.post("/api/accounts", json={}, headers={"X-Requested-With": "mail-pilot"}).status_code == 401
+
+
+def test_validation_error_does_not_echo_password(auth_client, calls):
+    r = auth_client.post("/api/accounts", json={"email": "a@b.fr", "password": "SuperSecret-xyz"})
+    assert r.status_code == 422
+    assert "SuperSecret-xyz" not in r.text
+    assert "input" not in r.json()["detail"][0]
+
+
+def test_login_validation_error_does_not_echo_password(client):
+    r = client.post("/api/auth/login", json={"password": "SuperSecret-xyz"},
+                    headers={"X-Requested-With": "mail-pilot"})
+    assert r.status_code == 422
+    assert "SuperSecret-xyz" not in r.text
+
+
+def test_invalid_email_422(auth_client, calls):
+    assert _post(auth_client, email="not-an-email").status_code == 422
+    assert _post(auth_client, email="a@b").status_code == 422
+
+
+def test_duplicate_email_case_insensitive_409(auth_client, calls):
+    assert _post(auth_client, email="Me@Gmail.com ").json()["email"] == "me@gmail.com"
+    assert _post(auth_client, email="ME@gmail.com").status_code == 409
+
+
+def test_empty_label_422(auth_client, calls):
+    assert _post(auth_client, label="  ").status_code == 422
+    aid = _post(auth_client).json()["id"]
+    assert auth_client.patch(f"/api/accounts/{aid}", json={"label": ""}).status_code == 422
+
+
+def test_max_lengths_and_empty_imap_host(auth_client, calls):
+    assert _post(auth_client, label="x" * 61).status_code == 422
+    assert _post(auth_client, password="x" * 1025).status_code == 422
+    assert _post(auth_client, provider="imap", imap_host="  ").status_code == 422

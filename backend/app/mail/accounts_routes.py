@@ -1,8 +1,9 @@
+import re
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -39,20 +40,49 @@ class AccountOut(BaseModel):
         )
 
 
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _clean_label(v: str | None) -> str | None:
+    if v is None:
+        return None
+    v = v.strip()
+    if not v:
+        raise ValueError("label vide")
+    return v
+
+
 class AccountCreate(BaseModel):
     provider: Literal["gmail", "icloud", "imap"]
-    email: str = Field(min_length=3)
-    password: str = Field(min_length=1)
-    imap_host: str | None = None
+    email: str = Field(max_length=254)
+    password: str = Field(min_length=1, max_length=1024)
+    imap_host: str | None = Field(default=None, max_length=253)
     imap_port: int = Field(default=993, ge=1, le=65535)
-    username: str | None = None
-    label: str | None = None
+    username: str | None = Field(default=None, max_length=254)
+    label: str | None = Field(default=None, max_length=60)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not EMAIL_RE.match(v):
+            raise ValueError("adresse e-mail invalide")
+        return v
+
+    @field_validator("imap_host", "username")
+    @classmethod
+    def _strip(cls, v: str | None) -> str | None:
+        return v.strip() or None if v is not None else None
+
+    _label = field_validator("label")(lambda cls, v: _clean_label(v))
 
 
 class AccountPatch(BaseModel):
     enabled: bool | None = None
-    password: str | None = Field(default=None, min_length=1)
-    label: str | None = None
+    password: str | None = Field(default=None, min_length=1, max_length=1024)
+    label: str | None = Field(default=None, max_length=60)
+
+    _label = field_validator("label")(lambda cls, v: _clean_label(v))
 
 
 async def _check(host: str, port: int, username: str, password: str) -> None:
