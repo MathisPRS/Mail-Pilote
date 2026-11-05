@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import { resolveNotificationUrl } from "./notificationUrl";
+import { parsePushPayload } from "./pushPayload";
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 
 declare const self: ServiceWorkerGlobalScope;
@@ -10,21 +11,14 @@ precacheAndRoute(self.__WB_MANIFEST);
 self.addEventListener("install", () => void self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
 
-interface PushPayload { title?: string; body?: string; data?: { url?: string } }
-
 self.addEventListener("push", (event) => {
-  let p: PushPayload = {};
-  try {
-    p = event.data ? (event.data.json() as PushPayload) : {};
-  } catch {
-    p = { body: event.data?.text() };
-  }
+  const p = parsePushPayload(event.data?.text());
   event.waitUntil(
-    self.registration.showNotification(p.title ?? "Mail Pilot", {
-      body: p.body ?? "",
+    self.registration.showNotification(p.title, {
+      body: p.body,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      data: { url: p.data?.url ?? "/" },
+      data: { url: p.url },
     }),
   );
 });

@@ -179,7 +179,7 @@ async def test_webpush_channel(db, folder, sent):
     assert await dispatch_alerts(db, now=NOON) == 1
     endpoint, payload = sent["webpush"][0]
     assert endpoint == "https://fcm.googleapis.com/1"
-    assert payload == {"title": "À traiter · Alice", "body": "Parce que", "url": f"/mail/{m.id}"}
+    assert payload == {"title": "À traiter · Alice", "body": "Parce que", "data": {"url": f"/mail/{m.id}"}}
 
 
 async def test_system_alert_deduplicated_24h(db, sent):

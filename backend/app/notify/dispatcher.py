@@ -63,7 +63,8 @@ async def send_to_channels(
         subs = list(db.scalars(select(PushSubscription)))
         if subs:
             attempted += 1
-            payload = {"title": title, "body": body, "url": url}
+            # format lu par le service worker (sw.ts) : data.url = page ouverte au clic
+            payload = {"title": title, "body": body, "data": {"url": url}}
             ok = False
             for sub in subs:
                 try:
