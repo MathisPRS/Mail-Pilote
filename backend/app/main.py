@@ -10,6 +10,7 @@ from app.analysis.jobs import close_interrupted_runs
 from app.analysis.scheduler import start_scheduler, stop_scheduler
 from app.api import actions, boxes, messages, runs, settings_routes
 from app.auth.routes import router as auth_router
+from app.claude import login as claude_login
 from app.claude.routes import router as claude_router
 from app.config import get_settings
 from app.csrf import CSRFMiddleware
@@ -44,11 +45,13 @@ async def _lifespan(app: FastAPI):
     init_db()
     close_interrupted_runs()  # aucun run n'est en cours au démarrage
     ensure_vapid_keys()
+    claude_login.shutdown()  # dossiers de connexion laissés par un arrêt brutal
     start_scheduler(app)
     try:
         yield
     finally:
         stop_scheduler()
+        claude_login.shutdown()
 
 
 def _frontend_dist() -> Path:

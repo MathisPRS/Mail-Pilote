@@ -62,7 +62,7 @@ async def record_claude_failure(db: Session, exc: Exception) -> None:
         await dispatcher.send_system_alert(
             db,
             title="Claude déconnecté",
-            body="Le jeton Claude est invalide ou expiré. Reconnecte-le dans les réglages.",
+            body="Le jeton Claude est invalide ou expiré. Reconnecte-le dans Réglages › Claude.",
             key="claude-auth",
         )
 
@@ -100,6 +100,6 @@ async def check_expiry(db: Session, now: datetime) -> bool:
     return await dispatcher.send_system_alert(
         db,
         title="Jeton Claude bientôt expiré",
-        body=f"Le jeton Claude expire dans {max(n, 0)} jour(s). Colle un nouveau jeton dans les réglages.",
+        body=f"Le jeton Claude expire dans {max(n, 0)} jour(s). Reconnecte-le dans Réglages › Claude.",
         key=f"claude-expiry-{day}",
     )

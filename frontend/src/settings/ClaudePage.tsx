@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, apiGet, apiSend } from "../api";
 import Sheet from "../components/Sheet";
 import { useToast } from "../components/Toast";
 import { formatClock, parseDate, plural } from "../format";
-import type { ClaudeStatus, OkDetail } from "../types";
+import type { ClaudeLoginStart, ClaudeStatus, OkDetail } from "../types";
 import SettingsLayout, { Group } from "./SettingsLayout";
 
 const LIFETIME_DAYS = 365;
@@ -66,13 +66,120 @@ export default function ClaudePage() {
           </select>
         </div>
       </Group>
-      {reconnecting && <TokenSheet onClose={() => setReconnecting(false)} />}
+      {reconnecting && <ReconnectSheet onClose={() => setReconnecting(false)} />}
     </SettingsLayout>
   );
 }
 
-function TokenSheet({ onClose }: { onClose: () => void }) {
+const START_ERROR = "Impossible de démarrer la connexion à Claude";
+
+/** Connexion à l'abonnement Claude pilotée par le serveur (`claude setup-token`) : lien officiel, puis code. */
+function ReconnectSheet({ onClose }: { onClose: () => void }) {
   const client = useQueryClient();
+  const toast = useToast();
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [advanced, setAdvanced] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
+  const launched = useRef(false);
+  const finished = useRef(false); // plus de session à annuler côté serveur
+
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: ["claude-status"] });
+    void client.invalidateQueries({ queryKey: ["runs"] });
+  };
+
+  const start = useMutation({
+    mutationFn: () => apiSend<ClaudeLoginStart>("POST", "/api/claude/login/start"),
+    onMutate: () => { finished.current = false; setUrl(null); setError(null); setCode(""); },
+    onSuccess: (r) => setUrl(r.url),
+    onError: (e) => setError(e instanceof ApiError ? e.detail : START_ERROR),
+  });
+
+  const complete = useMutation({
+    mutationFn: (value: string) => apiSend<OkDetail>("POST", "/api/claude/login/complete", { code: value }),
+    onSuccess: (r) => {
+      finished.current = true; // la session serveur est terminée, réussie ou non
+      if (r.ok) {
+        refresh();
+        toast("Claude est connecté");
+        onClose();
+        return;
+      }
+      setUrl(null);
+      setError(r.detail);
+    },
+    onError: (e) => {
+      finished.current = true;
+      setUrl(null);
+      setError(e instanceof ApiError ? e.detail : "Une erreur est survenue");
+    },
+  });
+
+  useEffect(() => {
+    if (launched.current) return; // StrictMode : une seule session
+    launched.current = true;
+    start.mutate();
+  }, [start]);
+
+  const close = () => {
+    if (!finished.current) void apiSend<void>("POST", "/api/claude/login/cancel").catch(() => {});
+    onClose();
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = code.trim();
+    if (!value) return;
+    setCode("");
+    complete.mutate(value);
+  };
+
+  return (
+    <Sheet label="Reconnecter Claude" onClose={close}>
+      <div className="sheet-form">
+        <p className="sheet-title">Reconnecter Claude</p>
+        <p className="muted small">Relance la connexion à ton abonnement Claude, sans terminal.</p>
+        {start.isPending && <p className="muted" role="status">Préparation de la connexion…</p>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && !start.isPending && (
+          <button type="button" className="btn" onClick={() => start.mutate()}>Recommencer</button>
+        )}
+        {url && (
+          <>
+            <ol className="steps">
+              <li>
+                <p>Connecte-toi avec ton compte Claude (abonnement Max). Claude t'affichera un code.</p>
+                <a className="btn btn-primary link-btn" href={url} target="_blank" rel="noopener noreferrer">Se connecter à Claude</a>
+              </li>
+              <li>
+                <form className="sheet-form" onSubmit={submit}>
+                  <div className="field">
+                    <label htmlFor="claude-code">Code affiché par Claude</label>
+                    <input id="claude-code" type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                      value={code} onChange={(e) => setCode(e.target.value)} />
+                  </div>
+                  <button type="submit" className="btn btn-primary" disabled={!code.trim() || complete.isPending}>
+                    {complete.isPending ? "Connexion en cours…" : "Valider"}
+                  </button>
+                </form>
+              </li>
+            </ol>
+          </>
+        )}
+        <button type="button" className="text-btn" aria-expanded={advanced} onClick={() => setAdvanced((v) => !v)}>
+          Autre méthode (avancé)
+        </button>
+        {advanced && <TokenForm onSaved={() => { setTokenSaved(true); refresh(); }} />}
+        <button type="button" className="text-btn" onClick={close}>{tokenSaved ? "Fermer" : "Annuler"}</button>
+      </div>
+    </Sheet>
+  );
+}
+
+/** Ancienne méthode : coller un code obtenu avec `claude setup-token` sur un ordinateur. */
+function TokenForm({ onSaved }: { onSaved: () => void }) {
   const [token, setToken] = useState("");
   const [result, setResult] = useState<OkDetail | null>(null);
 
@@ -80,10 +187,7 @@ function TokenSheet({ onClose }: { onClose: () => void }) {
     mutationFn: (value: string) => apiSend<OkDetail>("POST", "/api/claude/token", { token: value }),
     onSuccess: (r) => {
       setResult(r);
-      if (r.ok) {
-        void client.invalidateQueries({ queryKey: ["claude-status"] });
-        void client.invalidateQueries({ queryKey: ["runs"] });
-      }
+      if (r.ok) onSaved();
     },
     onError: (e) => setResult({ ok: false, detail: e instanceof ApiError ? e.detail : "Une erreur est survenue" }),
   });
@@ -98,30 +202,22 @@ function TokenSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet label="Reconnecter Claude" onClose={onClose}>
-      <form className="sheet-form" onSubmit={submit}>
-        <p className="sheet-title">Reconnecter Claude</p>
-        <ol className="steps">
-          <li>Sur un ordinateur, lance <code>claude setup-token</code> dans un terminal.</li>
-          <li>Connecte-toi avec ton compte Claude.</li>
-          <li>Colle ici le jeton affiché.</li>
-        </ol>
-        <div className="field">
-          <label htmlFor="claude-token">Jeton Claude</label>
-          <textarea id="claude-token" rows={3} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />
-        </div>
-        {result && <p className={result.ok ? "form-ok" : "form-error"} role="status">{result.detail}</p>}
-        {result?.ok ? (
-          <button type="button" className="btn btn-primary" onClick={onClose}>Fermer</button>
-        ) : (
-          <>
-            <button type="submit" className="btn btn-primary" disabled={!token.trim() || save.isPending}>
-              {save.isPending ? "Test en cours…" : "Tester et enregistrer"}
-            </button>
-            <button type="button" className="text-btn" onClick={onClose}>Annuler</button>
-          </>
-        )}
-      </form>
-    </Sheet>
+    <form className="sheet-form" onSubmit={submit}>
+      <ol className="steps">
+        <li>Sur un ordinateur, lance <code>claude setup-token</code> dans un terminal.</li>
+        <li>Connecte-toi avec ton compte Claude.</li>
+        <li>Colle ici le jeton affiché.</li>
+      </ol>
+      <div className="field">
+        <label htmlFor="claude-token">Jeton Claude</label>
+        <textarea id="claude-token" rows={3} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />
+      </div>
+      {result && <p className={result.ok ? "form-ok" : "form-error"} role="status">{result.detail}</p>}
+      {!result?.ok && (
+        <button type="submit" className="btn" disabled={!token.trim() || save.isPending}>
+          {save.isPending ? "Test en cours…" : "Tester et enregistrer"}
+        </button>
+      )}
+    </form>
   );
 }

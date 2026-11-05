@@ -74,3 +74,4 @@ export interface ClaudeStatus {
   token_set_at: string | null; expires_at: string | null; days_left: number | null; warn_days: number;
 }
 export interface OkDetail { ok: boolean; detail: string }
+export interface ClaudeLoginStart { url: string }

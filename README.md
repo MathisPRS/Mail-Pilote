@@ -17,7 +17,9 @@ python3 -c "import secrets;print(secrets.token_urlsafe(48))"   # à coller dans 
 
 `MP_SECRET_KEY` (32 caractères minimum) chiffre les identifiants mail : l'appli refuse de démarrer sans elle. Si elle est absente ou trop courte, le conteneur s'arrête et le message d'erreur apparaît dans `docker compose logs`. Ne la perds pas et ne la change pas (les boîtes devraient être reconfigurées).
 
-Jeton Claude : sur une machine où Claude Code est installé, lance `claude setup-token`, puis colle le jeton dans `CLAUDE_CODE_OAUTH_TOKEN` du `.env`, ou plus tard dans Réglages › Claude.
+Connexion à Claude : rien à faire dans un terminal. Après le premier lancement, ouvre Réglages › Claude › « Reconnecter », touche « Se connecter à Claude », connecte-toi avec ton compte Claude (abonnement Pro/Max, jamais une clé API) et recopie dans l'appli le code affiché par Claude. L'appli pilote elle-même `claude setup-token` dans le conteneur et enregistre la connexion (valable environ 1 an), chiffrée dans `./data`.
+
+Alternative (avancé) : sur une machine où Claude Code est installé, lance `claude setup-token`, puis colle le jeton obtenu dans `CLAUDE_CODE_OAUTH_TOKEN` du `.env`, ou dans Réglages › Claude › Reconnecter › « Autre méthode (avancé) ».
 
 `./data` doit appartenir à l'utilisateur du conteneur (uid 1000 par défaut). Si ton utilisateur hôte a un autre uid, renseigne `MP_UID` / `MP_GID` dans `.env` (valeurs de `id -u` / `id -g`).
 
@@ -35,7 +37,7 @@ Si `./data` existe déjà avec un autre propriétaire : `sudo chown -R "$(id -u)
 
 1. Ouvre <http://localhost:8000> (avec `MP_PUBLIC_ORIGIN=http://localhost:8000` dans `.env`).
 2. Crée le compte.
-3. Colle le jeton Claude dans Réglages › Claude (sauf s'il est déjà dans `CLAUDE_CODE_OAUTH_TOKEN`).
+3. Connecte Claude : Réglages › Claude › « Reconnecter » (sauf si un jeton est déjà dans `CLAUDE_CODE_OAUTH_TOKEN`).
 4. Ajoute une boîte mail : la synchronisation et une première analyse démarrent aussitôt (« Analyse en cours… » en haut à gauche de l'accueil).
 5. Pour un tri complet immédiat : bouton Actions › « Lancer une analyse ».
 

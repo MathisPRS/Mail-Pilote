@@ -1,12 +1,14 @@
+import asyncio
 import os
+import unicodedata
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.auth.deps import current_user
-from app.claude import status
+from app.claude import login, status
 from app.claude.runner import TOKEN_FILE, ClaudeAuthError, ClaudeError, run_claude
 from app.config import get_settings
 from app.crypto import encrypt
@@ -34,13 +36,27 @@ class TokenIn(BaseModel):
         return v
 
 
+class CodeIn(BaseModel):
+    code: str
+
+    @field_validator("code")
+    @classmethod
+    def _clean(cls, v: str) -> str:
+        v = v.strip()
+        if not 1 <= len(v) <= 512:
+            raise ValueError("code invalide")
+        if any(c.isspace() or unicodedata.category(c).startswith("C") for c in v):
+            raise ValueError("code invalide")
+        return v
+
+
 class ClaudeSettingsIn(BaseModel):
     warn_days: int = Field(ge=1, le=30)
 
 
 def _detail(exc: Exception) -> str:
     if isinstance(exc, ClaudeAuthError):
-        return "Jeton refusé : il est invalide ou expiré."
+        return "Claude refuse la connexion : elle est invalide ou expirée."
     return "Claude est injoignable ou a répondu une erreur. Réessaie plus tard."
 
 
@@ -93,19 +109,52 @@ async def check(db: Session = Depends(get_db)) -> dict:
     return {"ok": True, "detail": "Claude répond."}
 
 
-@router.post("/token")
-async def set_token(body: TokenIn, db: Session = Depends(get_db)) -> dict:
-    # le candidat est testé sans toucher au fichier courant ; écrit seulement s'il fonctionne
+async def save_tested_token(db: Session, token: str) -> tuple[bool, str]:
+    """Teste le jeton candidat sans toucher au fichier courant ; l'enregistre (chiffré, 0600) s'il fonctionne."""
     try:
-        meta = await _test_call(token=body.token)
+        meta = await _test_call(token=token)
     except ClaudeError as e:
-        return {"ok": False, "detail": _detail(e)}
+        return False, _detail(e)
     path = get_settings().data_dir / TOKEN_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    _write_private(path, encrypt(body.token))
+    _write_private(path, encrypt(token))
     cfg = get_claude(db)
     cfg.token_set_at = datetime.now(timezone.utc)
     set_claude(db, cfg)
     status.forget_expiry(db)  # l'ancienne échéance ne vaut plus pour le nouveau jeton
     status.record_claude_success(db, meta)
-    return {"ok": True, "detail": "Jeton enregistré, Claude répond."}
+    return True, "Jeton enregistré, Claude répond."
+
+
+@router.post("/token")
+async def set_token(body: TokenIn, db: Session = Depends(get_db)) -> dict:
+    ok, detail = await save_tested_token(db, body.token)
+    return {"ok": ok, "detail": detail}
+
+
+@router.post("/login/start")
+async def login_start() -> dict:
+    try:
+        url = await asyncio.to_thread(login.start)
+    except login.LoginError as e:
+        raise HTTPException(status_code=502, detail="Impossible de démarrer la connexion à Claude") from e
+    return {"url": url}
+
+
+@router.post("/login/complete")
+async def login_complete(body: CodeIn, db: Session = Depends(get_db)) -> dict:
+    try:
+        token = await asyncio.to_thread(login.complete, body.code)
+    except login.NoSession as e:
+        raise HTTPException(status_code=409, detail="Aucune connexion en cours, recommence") from e
+    except login.LoginFailed as e:
+        return {"ok": False, "detail": str(e)}
+    ok, detail = await save_tested_token(db, token)
+    del token  # jamais renvoyé ni gardé
+    return {"ok": ok, "detail": "Claude est connecté." if ok else detail}
+
+
+@router.post("/login/cancel", status_code=204)
+async def login_cancel() -> Response:
+    await asyncio.to_thread(login.cancel)
+    return Response(status_code=204)
