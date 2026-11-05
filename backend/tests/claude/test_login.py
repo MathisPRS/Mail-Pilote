@@ -22,7 +22,9 @@ EXPECTED_URL = (
 
 
 @pytest.fixture(autouse=True)
-def _no_leftover_session():
+def _no_leftover_session(monkeypatch):
+    monkeypatch.setattr(login, "ERROR_GRACE_S", 0.3)
+    monkeypatch.setattr(login, "COMPLETE_TIMEOUT_S", 5)
     yield
     login.cancel()
 
@@ -32,12 +34,13 @@ def fake_cli(tmp_path, settings, monkeypatch):
     """Installe le faux `claude` (CLAUDE_BIN) ; renvoie les chemins utiles aux vérifications."""
     bindir = tmp_path / "bin"
     bindir.mkdir()
-    paths = {"env": bindir / "env.json", "pid": bindir / "pid"}
+    paths = {"env": bindir / "env.json", "pid": bindir / "pid", "ctty": bindir / "ctty.json"}
 
     def install(*opts: str) -> dict:
         wrapper = bindir / "claude"
         args = " ".join(
-            [sys.executable, str(FAKE), "--env-dump", str(paths["env"]), "--pid-file", str(paths["pid"]), *opts]
+            [sys.executable, str(FAKE), "--env-dump", str(paths["env"]), "--pid-file", str(paths["pid"]),
+             "--ctty-file", str(paths["ctty"]), *opts]
         )
         wrapper.write_text(f'#!/bin/sh\nexec {args} "$@"\n')
         wrapper.chmod(0o755)
@@ -155,6 +158,12 @@ def test_process_env_is_minimal(auth_client, fake_cli, settings, monkeypatch):
     assert set(env) - extra <= allowed
 
 
+def test_pty_is_the_controlling_terminal(auth_client, fake_cli):
+    paths = fake_cli()
+    assert auth_client.post("/api/claude/login/start").status_code == 200
+    assert json.loads(paths["ctty"].read_text()) == {"is_ctty": True, "session_leader": True}
+
+
 def test_start_rejects_foreign_url(auth_client, fake_cli, settings):
     paths = fake_cli("--host", "evil.example.com")
     r = auth_client.post("/api/claude/login/start")
@@ -242,6 +251,38 @@ def test_complete_refused_code(auth_client, fake_cli, settings, monkeypatch):
     assert not (settings.data_dir / "claude-token.enc").exists()
     assert _dead(_pid(paths))
     assert _login_dirs(settings) == []
+
+
+def test_error_redraw_then_token_within_grace_succeeds(auth_client, fake_cli, settings, monkeypatch):
+    monkeypatch.setattr(login, "ERROR_GRACE_S", 2)
+    seen = []
+    monkeypatch.setattr(routes, "run_claude", _fake_run(seen))
+    fake_cli()
+    auth_client.post("/api/claude/login/start")
+    r = auth_client.post("/api/claude/login/complete", json={"code": "redraw-code"})
+    assert r.json() == {"ok": True, "detail": "Claude est connecté."}
+    assert seen == [FAKE_TOKEN]
+
+
+def test_error_hint_without_token_fails_after_grace(auth_client, fake_cli, monkeypatch):
+    monkeypatch.setattr(login, "ERROR_GRACE_S", 0.8)
+    fake_cli()
+    auth_client.post("/api/claude/login/start")
+    t0 = time.monotonic()
+    r = auth_client.post("/api/claude/login/complete", json={"code": "wrong-code"})
+    elapsed = time.monotonic() - t0
+    assert r.json()["ok"] is False
+    assert "refusé" in r.json()["detail"]
+    assert 0.8 <= elapsed < 4
+
+
+def test_code_matching_a_hint_is_not_an_error(auth_client, fake_cli, monkeypatch):
+    seen = []
+    monkeypatch.setattr(routes, "run_claude", _fake_run(seen))
+    fake_cli()
+    auth_client.post("/api/claude/login/start")
+    r = auth_client.post("/api/claude/login/complete", json={"code": "good-expired-failed"})
+    assert r.json()["ok"] is True
 
 
 def test_complete_process_exits_without_token(auth_client, fake_cli, settings):

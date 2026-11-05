@@ -7,17 +7,35 @@ Options (avant `setup-token`) :
   --pid-file PATH    écrit le pid dans PATH
   --no-url           n'affiche jamais de lien (test du délai de démarrage)
 
-Code reçu : « good… » -> faux jeton d'abonnement ; « hang » -> ne répond plus ;
-« exit » -> quitte sans rien dire ; autre -> message d'erreur.
+Comme Ink : terminal en mode brut, lecture par blocs ; un bloc « texte + \r » est un collage
+(le \r est inséré, pas validé) ; seul un « \r » isolé vaut Entrée. Exige un terminal de contrôle.
+
+Code reçu : « good… » -> faux jeton d'abonnement ; « redraw… » -> redessin contenant « OAuth error »
+puis le jeton 0,5 s plus tard ; « hang » -> ne répond plus ; « exit » -> quitte sans rien dire ;
+autre -> message d'erreur (le processus reste ouvert).
 """
 import json
 import os
 import sys
 import time
+import tty
 
 ESC = "\x1b"
 BEL = "\x07"
 FAKE_TOKEN = "sk-ant-oat01-FAKE_token-0123456789abcdefABCDEF"
+
+
+def read_code(out) -> str:
+    text = ""
+    while True:
+        chunk = os.read(0, 4096).decode(errors="replace")
+        if not chunk:
+            return text
+        if chunk == "\r":
+            return text.strip()
+        text += chunk  # collage : un \r éventuel fait partie du texte, pas de validation
+        out.write(chunk.replace("\r", "\r\n"))  # écho, comme le champ de saisie d'Ink
+        out.flush()
 
 
 def main() -> int:
@@ -34,6 +52,15 @@ def main() -> int:
         elif opt == "--pid-file":
             with open(args.pop(0), "w") as f:
                 f.write(str(os.getpid()))
+        elif opt == "--ctty-file":
+            # terminal de contrôle == pseudo-terminal reçu sur l'entrée standard :
+            # tcgetpgrp(0) échoue (ENOTTY) si fd 0 n'est pas le terminal de contrôle
+            try:
+                info = {"is_ctty": os.tcgetpgrp(0) == os.getpgrp(), "session_leader": os.getsid(0) == os.getpid()}
+            except OSError as e:
+                info = {"is_ctty": False, "error": str(e)}
+            with open(args.pop(0), "w") as f:
+                json.dump(info, f)
         elif opt == "--no-url":
             no_url = True
     if args != ["setup-token"]:
@@ -43,6 +70,12 @@ def main() -> int:
     if not (sys.stdin.isatty() and out.isatty()):
         print("Raw mode is not supported", file=sys.stderr)
         return 1
+    try:
+        os.close(os.open("/dev/tty", os.O_RDWR))
+    except OSError:
+        print("no controlling terminal", file=sys.stderr)
+        return 1
+    tty.setraw(0)
     out.write(f"{ESC}[2J{ESC}[H{ESC}[1m✻ Welcome to Claude Code{ESC}[0m\r\n\r\n")
     out.write("Opening browser to sign in…\r\n")
     # spinner verbeux : le lecteur doit vider le pseudo-terminal en continu
@@ -64,7 +97,12 @@ def main() -> int:
     out.write(f"\r\n{ESC}]8;id=link2;{url}{ESC}\\{url}{ESC}]8;;{ESC}\\\r\n")
     out.write("\r\nPaste code here if prompted > ")
     out.flush()
-    code = sys.stdin.readline().strip()
+    code = read_code(out)
+    if code.startswith("redraw"):
+        out.write(f"\r\n{ESC}[2K{ESC}[31mOAuth error (retrying)…{ESC}[0m\r\n")
+        out.flush()
+        time.sleep(0.5)
+        code = "good"
     if code.startswith("good"):
         out.write(f"\r\n{ESC}[32m✓ Long-lived authentication token created successfully!{ESC}[0m\r\n\r\n")
         out.write(f"Your OAuth token (valid for 1 year):\r\n\r\n{ESC}[1m{FAKE_TOKEN}{ESC}[0m\r\n\r\n")

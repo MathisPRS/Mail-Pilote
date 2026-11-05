@@ -34,7 +34,10 @@ ALLOWED_HOSTS = {"claude.com", "claude.ai"}
 
 _BUF_MAX = 1 << 20  # le spinner du CLI écrit en continu : on ne garde que la fin
 _BUF_KEEP = 64 * 1024
-_ERROR_HINTS = ("error", "invalid", "failed", "expired", "erreur")
+# formulations du CLI ; un indice seul ne suffit pas (Ink redessine l'écran) : délai de grâce
+_ERROR_HINTS = ("oauth error", "invalid code", "expired", "failed")
+ERROR_GRACE_S: float = 3
+SUBMIT_DELAY_S: float = 0.25  # Ink traite un bloc « texte + \r » comme un collage : Entrée à part
 
 _OSC8 = re.compile(r"\x1b\]8;[^;\x07\x1b]*;([^\x07\x1b]*)(?:\x07|\x1b\\)")
 _OSC = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
@@ -139,7 +142,7 @@ class _Session:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return None
-                self.cond.wait(remaining)
+                self.cond.wait(min(remaining, 0.1))  # réveil régulier : délais internes à `check`
 
     def clear(self) -> None:
         with self.cond:
@@ -217,6 +220,11 @@ def _env(home: Path) -> dict[str, str]:
     }
 
 
+def _take_controlling_tty() -> None:  # pragma: no cover - exécuté dans le processus enfant
+    os.setsid()
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+
+
 def _spawn() -> _Session:
     root = _root()
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -232,7 +240,9 @@ def _spawn() -> _Session:
             stderr=slave,
             env=_env(home),
             cwd=home,
-            start_new_session=True,
+            # le pseudo-terminal devient le terminal de contrôle (topologie du spike) ;
+            # le CLI reste chef de session et de groupe : killpg fonctionne
+            preexec_fn=_take_controlling_tty,
             close_fds=True,
         )
     except OSError as e:
@@ -276,19 +286,24 @@ def complete(code: str) -> str:
         if sess is None:
             raise NoSession()
         needle = code.lower()
+        hint_seen: list[float] = []
 
         def outcome(buf: str, eof: bool):
             token = find_token(buf, eof)
             if token:
                 return token
             text = strip_ansi(buf).lower().replace(needle, "")  # l'écho du code ne compte pas
-            if any(h in text for h in _ERROR_HINTS):
-                return ""
+            if not hint_seen and any(h in text for h in _ERROR_HINTS):
+                hint_seen.append(time.monotonic())
+            if hint_seen and time.monotonic() - hint_seen[0] >= ERROR_GRACE_S:
+                return ""  # erreur affichée et toujours pas de jeton
             return None
 
         try:
-            sess.clear()  # seule la sortie qui suit le code compte
-            sess.write((code + "\r").encode())
+            sess.write(code.encode())
+            time.sleep(SUBMIT_DELAY_S)
+            sess.clear()  # l'écho du code est ignoré : seule la sortie après Entrée compte
+            sess.write(b"\r")
             result = sess.wait_for(outcome, COMPLETE_TIMEOUT_S)
             eof = sess.eof
         except OSError:
