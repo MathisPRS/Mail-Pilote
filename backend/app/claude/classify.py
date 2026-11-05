@@ -16,6 +16,7 @@ PRIORITY_CATEGORIES = {"tt", "important", "action"}
 HEADERS_BATCH, HEADERS_MODEL = 50, "haiku"
 FULL_BATCH, FULL_MODEL = 10, "sonnet"
 BODY_MAX_CHARS = 6000
+REASON_MAX, SUMMARY_MAX = 140, 160  # limites demandées au prompt, appliquées en post-traitement
 
 _DATE = {"type": ["string", "null"], "pattern": r"^\d{4}-\d{2}-\d{2}$"}
 RESULTS_SCHEMA = {
@@ -29,8 +30,8 @@ RESULTS_SCHEMA = {
                     "id": {"type": "integer"},
                     "category": {"type": "string", "enum": CATEGORIES},
                     "priority": {"type": "boolean"},
-                    "reason": {"type": "string", "maxLength": 140},
-                    "summary": {"type": "string", "maxLength": 160},
+                    "reason": {"type": "string"},
+                    "summary": {"type": "string"},
                     "deadline": _DATE,
                     "tt_date": _DATE,
                     "needs_body": {"type": "boolean"},
@@ -99,8 +100,8 @@ async def _run(items: list, size: int, model: str) -> list[Classification]:
                 message_id=mid,
                 category=r["category"],
                 priority=r["category"] in PRIORITY_CATEGORIES,
-                reason=r["reason"],
-                summary=r["summary"],
+                reason=r["reason"][:REASON_MAX],
+                summary=r["summary"][:SUMMARY_MAX],
                 deadline=_parse_date(r["deadline"]),
                 tt_date=_parse_date(r["tt_date"]),
                 needs_body=r["needs_body"],

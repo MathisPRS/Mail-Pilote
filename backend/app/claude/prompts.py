@@ -3,7 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 TAG = "mail-non-fiable"
-_TAG_RE = re.compile(r"(</?)" + TAG, re.IGNORECASE)
+_TAG_RE = re.compile(r"<\s*/?\s*" + TAG, re.IGNORECASE)
 _CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
 
 SYSTEM_PROMPT = """Tu classes les mails de Mathis. Réponds uniquement avec le JSON demandé par le schéma, en français.
@@ -37,6 +37,10 @@ def clean(text: str) -> str:
     return _TAG_RE.sub(r"[balise retirée]", text)
 
 
+def clean_line(text: str) -> str:
+    return re.sub(r"[\r\n\t]+", " ", clean(text))
+
+
 def build_prompt(items, now: datetime | None = None) -> str:
     now = now or datetime.now(ZoneInfo("Europe/Paris"))
     jours = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
@@ -44,8 +48,8 @@ def build_prompt(items, now: datetime | None = None) -> str:
              "Classe les mails suivants.", ""]
     for it in items:
         lines = [
-            f"De : {clean(it.from_name)} <{clean(it.from_addr)}>",
-            f"Objet : {clean(it.subject)}",
+            f"De : {clean_line(it.from_name)} <{clean_line(it.from_addr)}>",
+            f"Objet : {clean_line(it.subject)}",
             f"Aperçu : {clean(it.preview)}",
         ]
         body = getattr(it, "body_text", None)
