@@ -86,6 +86,13 @@ class AccountPatch(BaseModel):
     _label = field_validator("label")(lambda cls, v: _clean_label(v))
 
 
+def _clean_password(provider: str, password: str) -> str:
+    """Les mots de passe d'application Gmail/iCloud s'affichent avec des espaces."""
+    if provider in ("gmail", "icloud"):
+        return "".join(password.split())
+    return password.strip()
+
+
 async def _check(host: str, port: int, username: str, password: str) -> None:
     try:
         await run_in_threadpool(test_connection, host, port, username, password)
@@ -123,10 +130,11 @@ async def create_account(body: AccountCreate, db: Session = Depends(get_db)) -> 
     )
     if dup:
         raise HTTPException(409, "Cette boîte est déjà configurée")
-    await _check(host, port, username, body.password)
+    password = _clean_password(body.provider, body.password)
+    await _check(host, port, username, password)
     acc = MailAccount(
         provider=body.provider, label=body.label or LABELS[body.provider], email=body.email,
-        imap_host=host, imap_port=port, username=username, secret_enc=encrypt(body.password),
+        imap_host=host, imap_port=port, username=username, secret_enc=encrypt(password),
         color=COLORS[body.provider],
     )
     db.add(acc)
@@ -149,8 +157,9 @@ async def patch_account(
 ) -> AccountOut:
     acc = _get(db, account_id)
     if body.password is not None:
-        await _check(acc.imap_host, acc.imap_port, acc.username, body.password)
-        acc.secret_enc = encrypt(body.password)
+        password = _clean_password(acc.provider, body.password)
+        await _check(acc.imap_host, acc.imap_port, acc.username, password)
+        acc.secret_enc = encrypt(password)
         acc.status, acc.status_message = "ok", None
     if body.enabled is not None:
         acc.enabled = body.enabled

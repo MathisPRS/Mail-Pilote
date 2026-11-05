@@ -217,3 +217,16 @@ def test_failed_box_creation_starts_nothing(auth_client, monkeypatch, first_anal
     monkeypatch.setattr(accounts_routes, "test_connection", boom)
     assert _post(auth_client).status_code == 400
     assert first_analysis == []
+
+
+def test_gmail_app_password_spaces_removed(auth_client, calls):
+    r = _post(auth_client, password=" abcd efgh ijkl mnop ")
+    assert r.status_code == 201, r.text
+    assert calls[-1][3] == "abcdefghijklmnop"
+
+
+def test_imap_password_only_trimmed(auth_client, calls):
+    r = _post(auth_client, provider="imap", email="a@laposte.net", imap_host="imap.laposte.net",
+              password="  mot de passe  ")
+    assert r.status_code == 201, r.text
+    assert calls[-1][3] == "mot de passe"
