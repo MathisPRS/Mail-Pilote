@@ -1,6 +1,7 @@
 import json
 import logging
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -187,7 +188,10 @@ async def run_batch(
             prev[m.id] = {"seen": m.seen}
         else:  # important
             op = {"id": m.id, "kind": "flag", "path": src.path, "uid": m.uid, "value": True}
-            prev[m.id] = {"category": m.category, "priority": m.priority, "flagged": m.flagged}
+            prev[m.id] = {
+                "category": m.category, "priority": m.priority, "flagged": m.flagged,
+                "classified_level": m.classified_level, "alerted_at": common.iso(m.alerted_at),
+            }
         ops_by_account.setdefault(m.account_id, []).append(op)
 
     if not ops_by_account:
@@ -210,6 +214,9 @@ async def run_batch(
             m.seen = action == "read"
         else:
             m.category, m.priority, m.flagged = "important", True, True
+            # choix de l'utilisateur : le tri complet ne le reclasse pas (niveau « full ») et
+            # aucune alerte ne lui est envoyée pour sa propre action (alerted_at renseigné)
+            m.classified_level, m.alerted_at = "full", utcnow()
         db.add(log)
     ops = {op["id"]: (acc, op) for acc, lst in ops_by_account.items() for op in lst}
     await _commit_or_revert(db, [
@@ -298,6 +305,9 @@ async def undo(batch_id: str, db: Session = Depends(get_db)) -> dict:
         else:
             m.category, m.priority = prev.get("category"), prev.get("priority", False)
             m.flagged = prev.get("flagged", False)
+            if "classified_level" in prev:  # lignes antérieures : champs absents
+                m.classified_level = prev["classified_level"]
+                m.alerted_at = datetime.fromisoformat(prev["alerted_at"]) if prev["alerted_at"] else None
         log.undone_at = now
         count += 1
     if count == 0:

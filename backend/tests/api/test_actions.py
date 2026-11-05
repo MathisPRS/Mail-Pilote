@@ -188,3 +188,15 @@ async def test_action_commit_locked_reverts_provider_move_and_reports(world, set
     world.db.expire_all()
     assert world.db.get(Message, m.id).folder_id == world.folders[(world.g.id, "INBOX")].id
     assert world.db.scalars(select(ActionLog)).first() is None
+
+
+def test_important_survives_full_sort_and_never_alerts_user(auth_client, world):
+    """Marquage manuel : figé (tri complet ne le reclasse pas) et jamais notifié à l'utilisateur."""
+    m = world.add(world.g, category="info", priority=False, classified_level="headers")
+    b = _act(auth_client, [m.id], "important").json()["batch_id"]
+    world.db.refresh(m)
+    assert (m.category, m.priority, m.classified_level) == ("important", True, "full")
+    assert m.alerted_at is not None
+    auth_client.post(f"/api/actions/{b}/undo")
+    world.db.refresh(m)
+    assert (m.category, m.priority, m.classified_level, m.alerted_at) == ("info", False, "headers", None)
