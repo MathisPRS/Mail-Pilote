@@ -7,7 +7,7 @@ import re
 import socket
 import ssl
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from email import message_from_bytes, policy
 from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
@@ -55,7 +55,10 @@ class RawBody:
 class MailSession(Protocol):
     def list_folders(self) -> list[tuple[str, list[str]]]: ...
     def select(self, path: str) -> int: ...
-    def fetch_headers(self, path: str, since_uid: int) -> list[RawHeader]: ...
+    def fetch_headers(
+        self, path: str, since_uid: int, since: date | None = None
+    ) -> list[RawHeader]: ...
+    def fetch_flags(self, path: str, uids: list[int]) -> dict[int, tuple[bool, bool]]: ...
     def fetch_body(self, path: str, uid: int) -> RawBody: ...
     def move(self, path: str, uid: int, dest_path: str) -> int | None: ...
     def set_seen(self, path: str, uid: int, seen: bool) -> None: ...
@@ -242,9 +245,23 @@ class ImapClientSession:
     def select(self, path):
         return self._select(path)
 
-    def fetch_headers(self, path, since_uid):
+    def fetch_flags(self, path, uids):
+        if not uids:
+            return {}
         self._select(path)
-        uids = [u for u in self._c.search(["UID", f"{since_uid + 1}:*"]) if u > since_uid]
+        data = self._c.fetch(list(uids), ["FLAGS"])
+        out = {}
+        for uid, item in data.items():
+            flags = {f.upper() for f in (item.get(b"FLAGS") or ())}
+            out[uid] = (b"\\SEEN" in flags, b"\\FLAGGED" in flags)
+        return out
+
+    def fetch_headers(self, path, since_uid, since=None):
+        self._select(path)
+        criteria = ["UID", f"{since_uid + 1}:*"]
+        if since is not None:
+            criteria += ["SINCE", since]
+        uids = [u for u in self._c.search(criteria) if u > since_uid]
         if not uids:
             return []
         data = self._c.fetch(

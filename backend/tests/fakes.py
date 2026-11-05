@@ -5,7 +5,7 @@
     new_uid = s.move("INBOX", uid, "[Gmail]/Corbeille")
     assert s.moves == [("INBOX", uid, "[Gmail]/Corbeille", new_uid)]
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from app.mail.imap import MailSession, RawBody, RawHeader  # noqa: F401
 
@@ -23,6 +23,7 @@ class FakeMailSession:
         self.flag_changes: list[tuple[str, int, bool]] = []
         self.calls: dict[str, int] = {}
         self.closed = False
+        self.header_requests: list[tuple[str, int, date | None]] = []
         self.fail_on: dict[str, Exception] = {}  # method name -> exception to raise
 
     def _hit(self, name: str) -> None:
@@ -63,13 +64,23 @@ class FakeMailSession:
         self._hit("select")
         return self._uidvalidity[path]
 
-    def fetch_headers(self, path, since_uid):
+    def fetch_flags(self, path, uids):
+        self._hit("fetch_flags")
+        return {
+            u: (self.messages[path][u]["seen"], self.messages[path][u]["flagged"])
+            for u in uids if u in self.messages[path]
+        }
+
+    def fetch_headers(self, path, since_uid, since: date | None = None):
         self._hit("fetch_headers")
+        self.header_requests.append((path, since_uid, since))
         out = []
         for uid in sorted(self.messages[path]):
             if uid <= since_uid:
                 continue
             m = self.messages[path][uid]  # reading never touches "seen"
+            if since is not None and m["sent_at"] is not None and m["sent_at"].date() < since:
+                continue
             out.append(
                 RawHeader(
                     uid=uid, message_id=m["message_id"], from_name=m["from_name"],
