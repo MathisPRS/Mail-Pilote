@@ -87,7 +87,15 @@ def test_limiter_ip_and_proxy_trust():
     lim.check("2.2.2.2", "other")
     lim.success("2.2.2.2", "other")
 
-    assert client_ip("127.0.0.1", "9.9.9.9, 10.0.0.1") == "9.9.9.9"
+    assert client_ip("127.0.0.1", "6.6.6.6, 203.0.113.9") == "203.0.113.9"
+    assert client_ip("127.0.0.1", "not-an-ip") == "127.0.0.1"
     assert client_ip("172.18.0.2", "9.9.9.9") == "9.9.9.9"
     assert client_ip("8.8.8.8", "9.9.9.9") == "8.8.8.8"
     assert client_ip("testclient", "9.9.9.9") == "testclient"
+
+
+def test_authenticated_request_refreshes_cookie(auth_client):
+    r = auth_client.get("/api/auth/me")
+    cookie = r.headers["set-cookie"].lower()
+    assert "mp_session=" in cookie and "max-age=2592000" in cookie
+    assert "httponly" in cookie and "secure" in cookie and "samesite=strict" in cookie

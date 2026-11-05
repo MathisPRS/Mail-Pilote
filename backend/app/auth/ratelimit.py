@@ -17,16 +17,16 @@ _TRUSTED_PROXIES = [
 
 
 def client_ip(peer: str, forwarded_for: str | None) -> str:
-    """IP du client : X-Forwarded-For (premier élément) uniquement si le pair est local/Docker."""
+    """IP du client : X-Forwarded-For (dernier élément, ajouté par notre reverse proxy) uniquement si le pair est local/Docker."""
     if forwarded_for:
         try:
             addr = ipaddress.ip_address(peer)
         except ValueError:
             return peer
         if any(addr in net for net in _TRUSTED_PROXIES):
-            first = forwarded_for.split(",")[0].strip()
+            last = forwarded_for.split(",")[-1].strip()
             try:
-                return str(ipaddress.ip_address(first))
+                return str(ipaddress.ip_address(last))
             except ValueError:
                 return peer
     return peer

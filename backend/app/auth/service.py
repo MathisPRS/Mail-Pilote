@@ -18,6 +18,18 @@ _hasher = PasswordHasher()
 _DUMMY_HASH = _hasher.hash("dummy-password-for-timing")
 
 
+def set_session_cookie(response, token: str) -> None:
+    response.set_cookie(
+        COOKIE_NAME,
+        token,
+        max_age=int(SESSION_TTL.total_seconds()),
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        path="/",
+    )
+
+
 def hash_password(password: str) -> str:
     return _hasher.hash(password)
 

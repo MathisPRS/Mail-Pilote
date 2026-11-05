@@ -29,8 +29,11 @@ def _ip(request: Request) -> str:
 
 
 @router.get("/status")
-def status(request: Request, db: DbSession = Depends(get_db)) -> dict[str, bool]:
-    resolved = service.resolve_session(db, request.cookies.get(service.COOKIE_NAME))
+def status(request: Request, response: Response, db: DbSession = Depends(get_db)) -> dict[str, bool]:
+    token = request.cookies.get(service.COOKIE_NAME)
+    resolved = service.resolve_session(db, token)
+    if resolved is not None:
+        service.set_session_cookie(response, token)
     return {"setup_done": service.user_exists(db), "authenticated": resolved is not None}
 
 
@@ -57,15 +60,7 @@ def login(body: LoginIn, request: Request, response: Response, db: DbSession = D
         raise HTTPException(status_code=401, detail="Identifiants incorrects")
     login_limiter.success(ip, username)
     token = service.create_session(db, user, request.headers.get("user-agent"))
-    response.set_cookie(
-        service.COOKIE_NAME,
-        token,
-        max_age=int(service.SESSION_TTL.total_seconds()),
-        httponly=True,
-        secure=True,
-        samesite="strict",
-        path="/",
-    )
+    service.set_session_cookie(response, token)
     return {"username": user.username, "display_name": user.display_name}
 
 
