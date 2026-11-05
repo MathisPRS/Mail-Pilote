@@ -26,8 +26,7 @@ def test_days_left_none_without_token_date(db):
 
 def test_cli_reported_expiry_wins(db):
     set_claude(db, ClaudeSettings(token_set_at=NOW - timedelta(days=53)))
-    runner.last_meta["credential_expires_at"] = "2026-12-02T14:07:20.773Z"
-    status.record_claude_success(db)
+    status.record_claude_success(db, {"credential_expires_at": "2026-12-02T14:07:20.773Z"})
     st = status.claude_status(db, NOW)
     assert st["days_left"] == 27
     assert st["connected"] is True
@@ -108,9 +107,11 @@ def test_status_route(auth_client):
     assert r.status_code == 200 and r.json()["connected"] is False
 
 
-def _fake_run(calls, fail=None):
-    async def run(prompt, *, system, schema, model, timeout_s=300):
+def _fake_run(calls, fail=None, on_call=None):
+    async def run(prompt, *, system, schema, model, timeout_s=300, token=None, meta=None):
         calls.append(model)
+        if on_call:
+            on_call(token)
         if fail:
             raise fail
         return {"pong": True}
@@ -165,3 +166,56 @@ def test_check_route(auth_client, monkeypatch):
     r = auth_client.post("/api/claude/check").json()
     assert r["ok"] is False
     assert auth_client.get("/api/claude/status").json()["connected"] is False
+
+
+def test_candidate_tested_without_touching_live_file(auth_client, settings, monkeypatch):
+    from app.crypto import encrypt
+
+    f = settings.data_dir / "claude-token.enc"
+    f.write_text(encrypt("old"))
+    seen = {}
+
+    def during(token):
+        seen["token"] = token
+        seen["file"] = decrypt(f.read_text())
+
+    monkeypatch.setattr(routes, "run_claude", _fake_run([], on_call=during))
+    assert auth_client.post("/api/claude/token", json={"token": "new"}).json()["ok"] is True
+    assert seen == {"token": "new", "file": "old"}
+    assert decrypt(f.read_text()) == "new"
+    assert oct(f.stat().st_mode & 0o777) == "0o600"
+    assert not list(settings.data_dir.glob("*.tmp"))
+
+
+def test_failure_leaves_file_byte_identical(auth_client, settings, monkeypatch):
+    from app.crypto import encrypt
+
+    f = settings.data_dir / "claude-token.enc"
+    f.write_text(encrypt("old"))
+    before = f.read_bytes()
+    monkeypatch.setattr(routes, "run_claude", _fake_run([], ClaudeAuthError("401")))
+    assert auth_client.post("/api/claude/token", json={"token": "bad"}).json()["ok"] is False
+    assert f.read_bytes() == before
+
+
+async def test_run_claude_fills_meta_and_token_override(settings, monkeypatch):
+    seen = {}
+
+    class P:
+        returncode = 0
+
+        async def communicate(self, _):
+            return b'{"structured_output":{"pong":true},"credential_expires_at":"2026-12-02T00:00:00Z"}', b""
+
+    async def fake_exec(*a, **kw):
+        seen["env"] = kw["env"]
+        return P()
+
+    monkeypatch.setattr(runner.asyncio, "create_subprocess_exec", fake_exec)
+    meta = {}
+    out = await runner.run_claude(
+        "x", system="s", schema={"type": "object"}, model="haiku", token="cand", meta=meta
+    )
+    assert out == {"pong": True}
+    assert meta == {"credential_expires_at": "2026-12-02T00:00:00Z"}
+    assert seen["env"]["CLAUDE_CODE_OAUTH_TOKEN"] == "cand"

@@ -9,9 +9,6 @@ from app.crypto import decrypt
 
 TOKEN_FILE = "claude-token.enc"
 
-# Métadonnées du dernier appel réussi (ex. credential_expires_at rapporté par la CLI).
-last_meta: dict = {}
-
 
 class ClaudeError(Exception):
     pass
@@ -44,13 +41,13 @@ def _resolve_token() -> str | None:
     return settings.claude_oauth_token
 
 
-def _build_env(home: str) -> dict[str, str]:
+def _build_env(home: str, token_override: str | None = None) -> dict[str, str]:
     env = {
         "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
         "HOME": home,
         "LANG": os.environ.get("LANG", "C.UTF-8"),
     }
-    token = _resolve_token()
+    token = token_override or _resolve_token()
     if token:
         env["CLAUDE_CODE_OAUTH_TOKEN"] = token
     return env
@@ -66,8 +63,17 @@ def _raise_for_error_text(text: str) -> None:
 
 
 async def run_claude(
-    prompt: str, *, system: str, schema: dict, model: str, timeout_s: int = 300
+    prompt: str,
+    *,
+    system: str,
+    schema: dict,
+    model: str,
+    timeout_s: int = 300,
+    token: str | None = None,
+    meta: dict | None = None,
 ) -> dict:
+    """`token` : jeton à utiliser à la place du jeton courant (test d'un candidat).
+    `meta` : dict rempli avec les métadonnées de la CLI (credential_expires_at)."""
     settings = get_settings()
     home = settings.data_dir / "claude-home"
     home.mkdir(parents=True, exist_ok=True)
@@ -87,7 +93,7 @@ async def run_claude(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            env=_build_env(str(home)),
+            env=_build_env(str(home), token),
         )
     except FileNotFoundError as e:
         raise ClaudeError("claude introuvable") from e
@@ -110,8 +116,8 @@ async def run_claude(
         raise ClaudeBadOutput("sortie non JSON")
 
     exp = data.get("credential_expires_at")
-    if isinstance(exp, str):
-        last_meta["credential_expires_at"] = exp
+    if isinstance(exp, str) and meta is not None:
+        meta["credential_expires_at"] = exp
 
     if data.get("is_error"):
         _raise_for_error_text(str(data.get("result", "")))

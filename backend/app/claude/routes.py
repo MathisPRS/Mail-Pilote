@@ -40,21 +40,30 @@ def _detail(exc: Exception) -> str:
     return "Claude est injoignable ou a répondu une erreur. Réessaie plus tard."
 
 
-async def _test_call() -> None:
+async def _test_call(token: str | None = None) -> dict:
+    meta: dict = {}
     await run_claude(
         'Réponds avec {"pong": true}.',
         system="Tu réponds uniquement avec le JSON demandé.",
         schema=PONG_SCHEMA,
         model="haiku",
         timeout_s=60,
+        token=token,
+        meta=meta,
     )
+    return meta
 
 
 def _write_private(path, content: str) -> None:
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as f:
-        f.write(content)
-    os.chmod(path, 0o600)
+    """Écriture atomique, mode 0600 (fichier temporaire du même dossier + os.replace)."""
+    tmp = path.with_name(path.name + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 @router.get("/status")
@@ -65,37 +74,27 @@ def get_status(db: Session = Depends(get_db)) -> dict:
 @router.post("/check")
 async def check(db: Session = Depends(get_db)) -> dict:
     try:
-        await _test_call()
+        meta = await _test_call()
     except ClaudeError as e:
         await status.record_claude_failure(db, e)
         return {"ok": False, "detail": _detail(e)}
-    status.record_claude_success(db)
+    status.record_claude_success(db, meta)
     return {"ok": True, "detail": "Claude répond."}
 
 
 @router.post("/token")
 async def set_token(body: TokenIn, db: Session = Depends(get_db)) -> dict:
+    # le candidat est testé sans toucher au fichier courant ; écrit seulement s'il fonctionne
+    try:
+        meta = await _test_call(token=body.token)
+    except ClaudeError as e:
+        return {"ok": False, "detail": _detail(e)}
     path = get_settings().data_dir / TOKEN_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    previous = path.read_text() if path.exists() else None
     _write_private(path, encrypt(body.token))
-    try:
-        await _test_call()
-    except ClaudeError as e:
-        if previous is None:
-            path.unlink(missing_ok=True)
-        else:
-            _write_private(path, previous)
-        return {"ok": False, "detail": _detail(e)}
-    except BaseException:
-        if previous is None:
-            path.unlink(missing_ok=True)
-        else:
-            _write_private(path, previous)
-        raise
     cfg = get_claude(db)
     cfg.token_set_at = datetime.now(timezone.utc)
     set_claude(db, cfg)
     status.forget_expiry(db)  # l'ancienne échéance ne vaut plus pour le nouveau jeton
-    status.record_claude_success(db)
+    status.record_claude_success(db, meta)
     return {"ok": True, "detail": "Jeton enregistré, Claude répond."}

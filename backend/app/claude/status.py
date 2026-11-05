@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.claude import runner
 from app.claude.runner import ClaudeAuthError
 from app.models import KV
 from app.notify import dispatcher
@@ -47,9 +46,9 @@ def forget_expiry(db: Session) -> None:
         db.commit()
 
 
-def record_claude_success(db: Session) -> None:
+def record_claude_success(db: Session, meta: dict | None = None) -> None:
     _kv_set(db, "claude_last_ok_at", datetime.now(timezone.utc).isoformat())
-    exp = _parse(runner.last_meta.get("credential_expires_at"))
+    exp = _parse((meta or {}).get("credential_expires_at"))
     if exp:
         _kv_set(db, EXPIRES_KEY, exp.isoformat())
     db.commit()
