@@ -3,7 +3,7 @@
 export type Category = "tt" | "important" | "action" | "info" | "news" | "pub" | "spam";
 export type FolderRole = "inbox" | "drafts" | "sent" | "junk" | "archive" | "trash";
 
-export interface AuthStatus { setup_done: boolean; authenticated: boolean }
+export interface AuthStatus { setup_done: boolean; authenticated: boolean; setup_token_required?: boolean }
 export interface SessionUser { username: string; display_name: string }
 
 // Accounts (Task 5)

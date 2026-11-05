@@ -57,7 +57,7 @@ export function apiSend<T>(method: Method, path: string, body?: unknown): Promis
 import type { AuthStatus, SessionUser } from "./types";
 
 export const getAuthStatus = () => apiGet<AuthStatus>("/api/auth/status");
-export const authSetup = (b: { username: string; password: string; display_name: string }) =>
+export const authSetup = (b: { username: string; password: string; display_name: string; setup_token?: string }) =>
   apiSend<{ username: string }>("POST", "/api/auth/setup", b);
 export const authLogin = (b: { username: string; password: string }) =>
   apiSend<SessionUser>("POST", "/api/auth/login", b);

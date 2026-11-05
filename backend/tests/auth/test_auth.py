@@ -1,3 +1,4 @@
+import pytest
 from app.models import User
 PASSWORD = "correct horse battery"
 
@@ -6,10 +7,14 @@ SETUP = {"username": "mathis", "password": PASSWORD, "display_name": "Mathis"}
 
 
 def test_setup_once_then_409(client):
-    assert client.get("/api/auth/status").json() == {"setup_done": False, "authenticated": False}
+    assert client.get("/api/auth/status").json() == {
+        "setup_done": False, "authenticated": False, "setup_token_required": False,
+    }
     assert client.post("/api/auth/setup", json=SETUP, headers=H).status_code == 201
     assert client.post("/api/auth/setup", json=SETUP, headers=H).status_code == 409
-    assert client.get("/api/auth/status").json() == {"setup_done": True, "authenticated": False}
+    assert client.get("/api/auth/status").json() == {
+        "setup_done": True, "authenticated": False, "setup_token_required": False,
+    }
 
 
 def test_short_password_rejected_422(client):
@@ -99,3 +104,142 @@ def test_authenticated_request_refreshes_cookie(auth_client):
     cookie = r.headers["set-cookie"].lower()
     assert "mp_session=" in cookie and "max-age=2592000" in cookie
     assert "httponly" in cookie and "secure" in cookie and "samesite=strict" in cookie
+
+
+# ---------- audit T16 : DoS argon2, course du premier lancement, jeton d'installation ----------
+
+import threading
+import time
+
+from sqlalchemy import func, select
+
+from app.auth import service
+from app.config import get_settings
+
+
+class SlowHasher:
+    """Hasher factice lent qui mesure la concurrence maximale observée."""
+
+    def __init__(self, delay=0.2):
+        self.delay, self.active, self.peak = delay, 0, 0
+        self._lock = threading.Lock()
+
+    def _work(self):
+        with self._lock:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+        time.sleep(self.delay)
+        with self._lock:
+            self.active -= 1
+
+    def hash(self, password):
+        self._work()
+        return "fake$" + password
+
+    def verify(self, h, password):
+        self._work()
+        return h == "fake$" + password
+
+
+def _run_parallel(fns):
+    out = [None] * len(fns)
+
+    def run(i, fn):
+        out[i] = fn()
+
+    threads = [threading.Thread(target=run, args=(i, fn)) for i, fn in enumerate(fns)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    return out
+
+
+def test_password_hashing_concurrency_is_bounded(monkeypatch):
+    fake = SlowHasher(0.1)
+    monkeypatch.setattr(service, "_hasher", fake)
+    monkeypatch.setattr(service, "_hash_slots", threading.BoundedSemaphore(2))
+    monkeypatch.setattr(service, "HASH_WAIT_SECONDS", 5)
+    _run_parallel([lambda: service.verify_password("fake$x", "x")] * 8)
+    assert fake.peak == 2
+
+
+def test_busy_hasher_returns_429_without_counting_a_failure(client, monkeypatch):
+    client.post("/api/auth/setup", json=SETUP, headers=H)
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(service, "_hash_slots", slots)
+    monkeypatch.setattr(service, "HASH_WAIT_SECONDS", 0.05)
+    slots.acquire()  # toutes les places occupées
+    try:
+        r = client.post("/api/auth/login", json={"username": "mathis", "password": PASSWORD}, headers=H)
+        assert r.status_code == 429
+        assert r.json()["detail"] == "Trop de tentatives, réessaie dans quelques instants."
+        r = client.post("/api/auth/setup", json={**SETUP, "username": "autre"}, headers=H)
+        assert r.status_code in (409, 429)
+    finally:
+        slots.release()
+    r = client.post("/api/auth/login", json={"username": "mathis", "password": PASSWORD}, headers=H)
+    assert r.status_code == 200
+
+
+def test_concurrent_logins_never_exceed_bound(client, monkeypatch):
+    fake = SlowHasher(0.2)
+    monkeypatch.setattr(service, "_hasher", fake)
+    client.post("/api/auth/setup", json=SETUP, headers=H)
+    fake.peak = 0
+    monkeypatch.setattr(service, "_hash_slots", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(service, "HASH_WAIT_SECONDS", 0.05)
+    login = lambda: client.post(
+        "/api/auth/login", json={"username": "mathis", "password": PASSWORD}, headers=H
+    ).status_code
+    codes = _run_parallel([login] * 4)
+    assert fake.peak == 1
+    assert 429 in codes and 200 in codes
+
+
+def test_concurrent_setups_create_a_single_user(client, db, monkeypatch):
+    monkeypatch.setattr(service, "_hasher", SlowHasher(0.2))
+    setup = lambda name: (lambda: client.post(
+        "/api/auth/setup", json={**SETUP, "username": name}, headers=H
+    ).status_code)
+    codes = _run_parallel([setup("alice"), setup("bob")])
+    assert sorted(codes) == [201, 409]
+    db.expire_all()
+    assert db.scalar(select(func.count()).select_from(User)) == 1
+
+
+def test_second_user_rejected_at_db_level(db):
+    service.create_user(db, "un", PASSWORD, "")
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        db.add(User(username="deux", password_hash="x", display_name=""))
+        db.commit()
+
+
+@pytest.fixture
+def setup_token(settings, monkeypatch):
+    monkeypatch.setenv("MP_SETUP_TOKEN", "jeton-installation-secret")
+    get_settings.cache_clear()
+    yield "jeton-installation-secret"
+    get_settings.cache_clear()
+
+
+def test_setup_token_required_when_configured(setup_token, client):
+    assert client.get("/api/auth/status").json()["setup_token_required"] is True
+    for bad in (None, "", "faux", "jeton-installation-secretX", "é"):
+        body = SETUP if bad is None else {**SETUP, "setup_token": bad}
+        r = client.post("/api/auth/setup", json=body, headers=H)
+        assert r.status_code == 403
+        assert r.json()["detail"] == "Jeton d'installation invalide"
+    r = client.post("/api/auth/setup", json={**SETUP, "setup_token": setup_token}, headers=H)
+    assert r.status_code == 201
+    assert client.get("/api/auth/status").json()["setup_token_required"] is False
+
+
+def test_password_fields_have_max_length(client):
+    long = "a" * 1025
+    assert client.post("/api/auth/setup", json={**SETUP, "password": long}, headers=H).status_code == 422
+    r = client.post("/api/auth/login", json={"username": "mathis", "password": long}, headers=H)
+    assert r.status_code == 422

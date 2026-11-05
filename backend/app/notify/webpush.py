@@ -29,7 +29,7 @@ ALLOWED_PUSH_HOSTS = (
 # Forme stricte avant tout parsing : hôte en [a-z0-9.-] seulement, puis un chemin sans
 # espace, contrôle, antislash ni « # ». Sans cela, urlsplit et urllib3/requests ne voient
 # pas le même hôte (ex. « https://evil.com\.fcm.googleapis.com » -> requests contacte evil.com).
-_ENDPOINT_RE = re.compile(r"https://[A-Za-z0-9.-]+(?::443)?(?:/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?]*)?", re.I)
+_ENDPOINT_RE = re.compile(r"https://[A-Za-z0-9.-]+(?::443)?(?:/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?]*)?", re.I | re.ASCII)
 
 
 def is_allowed_push_endpoint(url: str) -> bool:

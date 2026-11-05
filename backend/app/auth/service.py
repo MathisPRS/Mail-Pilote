@@ -1,5 +1,8 @@
 import hashlib
+import hmac
 import secrets
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 from argon2 import PasswordHasher
@@ -14,6 +17,27 @@ SESSION_TTL = timedelta(days=30)
 MIN_PASSWORD_LENGTH = 12
 
 _hasher = PasswordHasher()
+# argon2 coûte ~64 Mio par calcul : au plus HASH_CONCURRENCY en parallèle (anti-DoS mémoire
+# sur /login et /setup) ; au-delà, attente brève puis HashBusy (-> 429).
+HASH_CONCURRENCY = 2
+HASH_WAIT_SECONDS = 5.0
+_hash_slots = threading.BoundedSemaphore(HASH_CONCURRENCY)
+# sérialise le premier lancement (vérification + création) : jamais deux comptes
+setup_lock = threading.Lock()
+
+
+class HashBusy(Exception):
+    """Trop de calculs de mot de passe simultanés."""
+
+
+@contextmanager
+def _hash_slot():
+    if not _hash_slots.acquire(timeout=HASH_WAIT_SECONDS):
+        raise HashBusy
+    try:
+        yield
+    finally:
+        _hash_slots.release()
 # Hash factice : verify sur identifiant inconnu coûte autant (anti-énumération par timing).
 _DUMMY_HASH = _hasher.hash("dummy-password-for-timing")
 
@@ -31,14 +55,21 @@ def set_session_cookie(response, token: str) -> None:
 
 
 def hash_password(password: str) -> str:
-    return _hasher.hash(password)
+    with _hash_slot():
+        return _hasher.hash(password)
 
 
 def verify_password(password_hash: str, password: str) -> bool:
-    try:
-        return _hasher.verify(password_hash, password)
-    except (VerificationError, InvalidHashError):
-        return False
+    with _hash_slot():
+        try:
+            return _hasher.verify(password_hash, password)
+        except (VerificationError, InvalidHashError):
+            return False
+
+
+def setup_token_ok(expected: str, given: str | None) -> bool:
+    """Comparaison en temps constant du jeton d'installation (MP_SETUP_TOKEN)."""
+    return hmac.compare_digest(expected.encode(), (given or "").encode())
 
 
 def hash_token(token: str) -> str:

@@ -7,7 +7,10 @@ const MIN_PASSWORD = 12;
 
 function messageFor(e: unknown): string {
   if (e instanceof ApiError) {
-    if (e.status === 429) return "Trop de tentatives, réessaie dans 15 minutes.";
+    if (e.status === 429) {
+      // serveur occupé (calculs de mot de passe) : attente courte ; sinon blocage de 15 min
+      return e.detail.includes("quelques instants") ? e.detail : "Trop de tentatives, réessaie dans 15 minutes.";
+    }
     if (e.status === 409) return "Le compte est déjà créé. Recharge la page pour te connecter.";
     return e.detail;
   }
@@ -22,6 +25,7 @@ export default function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [setupToken, setSetupToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -30,6 +34,7 @@ export default function Login() {
     return <main className="auth-page"><p className="form-error" role="alert">Impossible de joindre le serveur.</p></main>;
   }
   const setup = !status.data.setup_done;
+  const tokenRequired = setup && status.data.setup_token_required === true;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -40,7 +45,14 @@ export default function Login() {
     }
     setBusy(true);
     try {
-      if (setup) await authSetup({ display_name: displayName.trim(), username: username.trim(), password });
+      if (setup) {
+        await authSetup({
+          display_name: displayName.trim(),
+          username: username.trim(),
+          password,
+          ...(tokenRequired ? { setup_token: setupToken.trim() } : {}),
+        });
+      }
       await authLogin({ username: username.trim(), password });
       await queryClient.invalidateQueries({ queryKey: ["auth-status"] });
       navigate("/", { replace: true });
@@ -57,6 +69,13 @@ export default function Login() {
         <h1>{setup ? "Créer ton compte" : "Mail Pilot"}</h1>
         <p className="muted">{setup ? "Première utilisation : crée l'accès à ton application." : "Connecte-toi pour accéder à tes mails."}</p>
 
+        {tokenRequired && (
+          <div className="field">
+            <label htmlFor="setup_token">Jeton d'installation</label>
+            <input id="setup_token" type="password" autoComplete="off" autoCapitalize="none" autoCorrect="off" required value={setupToken} onChange={(e) => setSetupToken(e.target.value)} />
+            <small className="hint">Valeur de MP_SETUP_TOKEN dans le fichier .env du serveur.</small>
+          </div>
+        )}
         {setup && (
           <div className="field">
             <label htmlFor="display_name">Nom affiché</label>

@@ -16,6 +16,37 @@ describe("Login", () => {
     expect(screen.getByLabelText("Mot de passe")).toBeInTheDocument();
     expect(screen.getByLabelText("Confirmer")).toBeInTheDocument();
     expect(screen.getByText(/12 caractères/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Jeton d'installation")).not.toBeInTheDocument();
+  });
+
+  it("setup_sends_install_token_when_required", async () => {
+    const f = mockFetch({
+      "GET /api/auth/status": () => jsonResponse({ setup_done: false, authenticated: false, setup_token_required: true }),
+      "POST /api/auth/setup": () => jsonResponse({ detail: "Jeton d'installation invalide" }, 403),
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, "/login");
+    await user.type(await screen.findByLabelText("Jeton d'installation"), " jeton-secret ");
+    await user.type(screen.getByLabelText("Identifiant"), "mathis");
+    await user.type(screen.getByLabelText("Mot de passe"), "un mot de passe long");
+    await user.type(screen.getByLabelText("Confirmer"), "un mot de passe long");
+    await user.click(screen.getByRole("button", { name: "Créer le compte" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Jeton d'installation invalide");
+    const setupBody = JSON.parse((f.mock.calls[1][1] as RequestInit).body as string);
+    expect(setupBody.setup_token).toBe("jeton-secret");
+  });
+
+  it("shows_short_wait_message_when_server_busy", async () => {
+    mockFetch({
+      "GET /api/auth/status": status(true),
+      "POST /api/auth/login": () => jsonResponse({ detail: "Trop de tentatives, réessaie dans quelques instants." }, 429),
+    });
+    const user = userEvent.setup();
+    renderWithProviders(<Login />, "/login");
+    await user.type(await screen.findByLabelText("Identifiant"), "mathis");
+    await user.type(screen.getByLabelText("Mot de passe"), "whatever");
+    await user.click(screen.getByRole("button", { name: "Se connecter" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("réessaie dans quelques instants");
   });
 
   it("shows_login_form_when_setup_done", async () => {

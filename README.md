@@ -45,7 +45,7 @@ mail.exemple.fr {
 }
 ```
 
-**Crée le compte (premier lancement, sur `localhost`) avant d'activer le reverse proxy** : tant qu'aucun compte n'existe, la page de création est ouverte à quiconque atteint l'appli.
+**Crée le compte (premier lancement, sur `localhost`) avant d'activer le reverse proxy** : tant qu'aucun compte n'existe, la page de création est ouverte à quiconque atteint l'appli. Si l'appli doit être exposée avant, renseigne `MP_SETUP_TOKEN` dans `.env` (recommandé) : l'écran de création demande alors ce « jeton d'installation ». Un seul compte peut exister.
 
 Mets alors `MP_PUBLIC_ORIGIN=https://mail.exemple.fr` dans `.env`. Le cookie de session est `Secure` : HTTPS est obligatoire (sauf `localhost`).
 

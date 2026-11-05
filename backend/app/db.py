@@ -73,7 +73,15 @@ def dispose() -> None:
 def init_db() -> None:
     from app import models  # noqa: F401  (enregistre les tables)
 
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        # appli mono-utilisateur : un second compte est refusé par la base elle-même
+        conn.exec_driver_sql(
+            "CREATE TRIGGER IF NOT EXISTS users_single_row BEFORE INSERT ON users "
+            "WHEN (SELECT COUNT(*) FROM users) > 0 "
+            "BEGIN SELECT RAISE(ABORT, 'un seul compte'); END"
+        )
 
 
 def get_db() -> Iterator[Session]:

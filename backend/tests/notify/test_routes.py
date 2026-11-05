@@ -100,6 +100,8 @@ def test_test_webpush_ok(auth_client, db, monkeypatch):
         "https://fcm.googleapis.com /x",
         "https://fcm.googleapis.com/x\nHost: evil.com",
         "https://fcm.googleapis.com/x\\y",
+        "https://fcm.googleapis.com/\u212a",  # signe kelvin : « k » pour re.I en Unicode
+        "https://fcm.googleapis.com/\u017f",  # s long
     ],
 )
 def test_subscribe_rejects_unsafe_endpoint(auth_client, endpoint):
