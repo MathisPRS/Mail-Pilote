@@ -1,0 +1,12 @@
+services:
+  mail-pilot:
+    build: .
+    image: mail-pilot:latest
+    # uid/gid propriétaires de ./data (défaut 1000, l'utilisateur de l'image)
+    user: "${MP_UID:-1000}:${MP_GID:-1000}"
+    env_file: .env
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped

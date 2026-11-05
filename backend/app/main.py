@@ -10,13 +10,36 @@ from app.analysis.scheduler import start_scheduler, stop_scheduler
 from app.api import actions, boxes, messages, runs, settings_routes
 from app.auth.routes import router as auth_router
 from app.claude.routes import router as claude_router
+from app.config import get_settings
 from app.csrf import CSRFMiddleware
+from app.db import init_db
 from app.mail.accounts_routes import router as accounts_router
 from app.notify.routes import router as notify_router
+from app.notify.webpush import ensure_vapid_keys
+
+
+SECRET_ERROR = "MP_SECRET_KEY manquante ou trop courte (32 caractères minimum)"
+
+CSP = (
+    "default-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; "
+    "base-uri 'none'; "
+    # le document srcdoc du lecteur de mail embarque un <style> : il hérite de cette CSP
+    "style-src 'self' 'unsafe-inline'"
+)
+SECURITY_HEADERS = {
+    "Content-Security-Policy": CSP,
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Strict-Transport-Security": "max-age=31536000",
+}
 
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    if len(get_settings().secret_key) < 32:
+        raise RuntimeError(SECRET_ERROR)
+    init_db()
+    ensure_vapid_keys()
     start_scheduler(app)
     try:
         yield
@@ -37,7 +60,7 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
     root = dist.resolve()
     index = root / "index.html"
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def spa(full_path: str) -> FileResponse:
         if full_path == "api" or full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not Found")
@@ -50,6 +73,18 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
 def create_app() -> FastAPI:
     app = FastAPI(title="Mail Pilot", lifespan=_lifespan)
     app.add_middleware(CSRFMiddleware)
+
+    @app.middleware("http")
+    async def _headers(request: Request, call_next):
+        response = await call_next(request)
+        for k, v in SECURITY_HEADERS.items():
+            response.headers[k] = v
+        path = request.url.path
+        if path.startswith("/assets/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif not path.startswith("/api/") and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = "no-cache"
+        return response
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:

@@ -11,7 +11,7 @@ os.environ["MP_DISABLE_SCHEDULER"] = "1"  # jamais de planificateur dans les tes
 @pytest.fixture
 def settings(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("MP_SECRET_KEY", "test-secret-key")
+    monkeypatch.setenv("MP_SECRET_KEY", "test-secret-key-0123456789-abcdefghijklmnop")
     get_settings.cache_clear()
     yield get_settings()
     get_settings.cache_clear()
