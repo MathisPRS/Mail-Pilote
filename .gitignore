@@ -7,3 +7,5 @@ __pycache__/
 .superpowers/
 *.pyc
 *.egg-info/
+
+*.tsbuildinfo

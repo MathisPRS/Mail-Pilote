@@ -1,0 +1,116 @@
+/* Tokens réutilisés par tous les écrans (réf. docs/mockups/Main.dc.html) */
+:root {
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg: #ffffff;
+  --bg-subtle: #f5f6f8;
+  --surface: #ffffff;
+  --border: #e6e8ec;
+  --text: #111317;
+  --text-secondary: #5f6672;
+  --accent: #1f6feb;
+  --accent-contrast: #ffffff;
+  --avatar: #1f3a8a;
+  --tt: #0f5c4d;
+  --warn: #c2410c;
+  --danger: #b42318;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --touch: 44px;
+  --content-max: 1200px;
+  --list-width: 380px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --shadow: 0 1px 2px rgba(17, 19, 23, 0.06), 0 8px 24px rgba(17, 19, 23, 0.08);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+h1 { font-size: 24px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+button, input { font: inherit; color: inherit; }
+.muted { color: var(--text-secondary); margin: 0; }
+
+.page { max-width: var(--content-max); margin: 0 auto; padding: 16px; }
+
+/* Formulaires */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 20px;
+}
+.auth-page { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.auth-card { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; box-shadow: var(--shadow); }
+.auth-logo { border-radius: 14px; align-self: center; }
+.auth-card h1, .auth-card .muted { text-align: center; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 14px; font-weight: 500; color: var(--text-secondary); }
+.field input {
+  min-height: var(--touch);
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 16px; /* évite le zoom auto d'iOS */
+}
+.field input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+.hint { color: var(--text-secondary); font-size: 13px; }
+.form-error { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); background: #fef3f2; color: var(--danger); font-size: 14px; }
+
+/* Boutons */
+.btn {
+  min-height: var(--touch);
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Interrupteur (Toggle) : 44 px de zone tactile minimum */
+.toggle {
+  position: relative; flex: none; width: 51px; min-height: var(--touch); padding: 0; border: 0; background: none; cursor: pointer;
+}
+.toggle::before {
+  content: ""; position: absolute; left: 0; top: 50%; width: 51px; height: 31px; margin-top: -15.5px;
+  border-radius: 999px; background: #d0d4db; transition: background 0.15s;
+}
+.toggle.on::before { background: var(--accent); }
+.toggle-knob {
+  position: absolute; left: 2px; top: 50%; width: 27px; height: 27px; margin-top: -13.5px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s;
+}
+.toggle.on .toggle-knob { transform: translateX(20px); }
+.toggle:disabled { opacity: 0.5; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(16px + var(--safe-bottom)); z-index: 100;
+  display: flex; align-items: center; gap: 12px;
+  max-width: min(480px, calc(100vw - 32px));
+  padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--text); color: #fff; box-shadow: var(--shadow);
+}
+.toast-action { min-height: var(--touch); padding: 0 8px; border: 0; background: none; color: #8ab4ff; font-weight: 600; cursor: pointer; }
+
+@media (min-width: 900px) {
+  .page { padding: 24px; }
+}

@@ -1,8 +1,10 @@
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.analysis.scheduler import start_scheduler, stop_scheduler
 from app.api import actions, boxes, messages, runs, settings_routes
@@ -20,6 +22,29 @@ async def _lifespan(app: FastAPI):
         yield
     finally:
         stop_scheduler()
+
+
+def _frontend_dist() -> Path:
+    env = os.environ.get("MP_FRONTEND_DIST")
+    if env:
+        return Path(env)
+    # backend/app/main.py -> <repo>/frontend/dist
+    return Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+def _mount_frontend(app: FastAPI, dist: Path) -> None:
+    """Sert le front compilé ; repli SPA vers index.html hors /api."""
+    root = dist.resolve()
+    index = root / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str) -> FileResponse:
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        candidate = (root / full_path).resolve()
+        if full_path and candidate.is_file() and candidate.is_relative_to(root):
+            return FileResponse(candidate)
+        return FileResponse(index)
 
 
 def create_app() -> FastAPI:
@@ -44,6 +69,10 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    dist = _frontend_dist()
+    if (dist / "index.html").is_file():
+        _mount_frontend(app, dist)
 
     return app
 
