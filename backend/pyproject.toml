@@ -19,6 +19,7 @@ dependencies = [
     "jsonschema",
     "pywebpush",
     "httpx",
+    "httpx2",
 ]
 
 [project.optional-dependencies]
