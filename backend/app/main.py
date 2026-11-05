@@ -1,7 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.analysis.scheduler import start_scheduler, stop_scheduler
 from app.auth.routes import router as auth_router
 from app.claude.routes import router as claude_router
 from app.csrf import CSRFMiddleware
@@ -9,8 +12,17 @@ from app.mail.accounts_routes import router as accounts_router
 from app.notify.routes import router as notify_router
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    start_scheduler(app)
+    try:
+        yield
+    finally:
+        stop_scheduler()
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Mail Pilot")
+    app = FastAPI(title="Mail Pilot", lifespan=_lifespan)
     app.add_middleware(CSRFMiddleware)
 
     @app.exception_handler(RequestValidationError)

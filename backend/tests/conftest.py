@@ -1,7 +1,11 @@
+import os
+
 import pytest
 
 from app import db as db_module
 from app.config import get_settings
+
+os.environ["MP_DISABLE_SCHEDULER"] = "1"  # jamais de planificateur dans les tests
 
 
 @pytest.fixture
