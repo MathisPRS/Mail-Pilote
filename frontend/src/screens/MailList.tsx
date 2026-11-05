@@ -40,7 +40,7 @@ export default function MailList({ account, folder, activeId }: Props) {
     if (!selecting) return;
     const root = document.documentElement.style;
     root.setProperty("--toast-bottom", "92px");
-    return () => root.removeProperty("--toast-bottom");
+    return () => { root.removeProperty("--toast-bottom"); };
   }, [selecting]);
 
   const boxes = useQuery({ queryKey: ["boxes"], queryFn: () => apiGet<BoxSummary[]>("/api/boxes/summary") });
