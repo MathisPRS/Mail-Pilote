@@ -91,6 +91,15 @@ def test_test_webpush_ok(auth_client, db, monkeypatch):
         "https://u@web.push.apple.com/x",
         "https://web.push.apple.com:8443/x",
         "https://fcm.googleapis.com/" + "a" * 2100,
+        # différentiel de parseurs : urllib3/requests voient l'hôte evil.com
+        "https://evil.com\\.fcm.googleapis.com/x",
+        "https://evil.com\\@fcm.googleapis.com/x",
+        "https://evil.com%2f.fcm.googleapis.com/x",
+        "https://evil.com%40fcm.googleapis.com/x",
+        "https://fcm.googleapis.com\t.evil.com/x",
+        "https://fcm.googleapis.com /x",
+        "https://fcm.googleapis.com/x\nHost: evil.com",
+        "https://fcm.googleapis.com/x\\y",
     ],
 )
 def test_subscribe_rejects_unsafe_endpoint(auth_client, endpoint):
@@ -109,8 +118,20 @@ def test_subscribe_rejects_oversized_keys(auth_client):
         "https://web.push.apple.com/QGxIj8",
         "HTTPS://fcm.googleapis.com/fcm/send/abc",
         "https://updates.push.services.mozilla.com:443/wpush/v2/x",
+        "https://wns2-par02p.notify.windows.com/w/?token=BQYAAABx%2bk%3d",
+        "https://fcm.googleapis.com/fcm/send/dRx:APA91b-_x~y",
     ],
 )
 def test_subscribe_accepts_known_push_services(auth_client, endpoint):
     body = {"endpoint": endpoint, "keys": {"p256dh": "k", "auth": "a"}}
     assert auth_client.post("/api/push/subscribe", json=body).status_code == 204
+
+
+def test_send_webpush_refuses_parser_differential_endpoint(monkeypatch):
+    """Un abonnement déjà en base au format piégé n'est jamais contacté."""
+    called = []
+    monkeypatch.setattr(webpush, "webpush", lambda **kw: called.append(kw))
+    sub = PushSubscription(endpoint="https://evil.com\\.fcm.googleapis.com/x", p256dh="k", auth="a")
+    with pytest.raises(webpush.SubscriptionGone):
+        webpush.send_webpush(sub, {"title": "t"})
+    assert called == []

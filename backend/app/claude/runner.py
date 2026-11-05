@@ -105,6 +105,11 @@ async def run_claude(
         proc.kill()
         await proc.wait()
         raise ClaudeError("timeout") from e
+    except BaseException:
+        # annulation (arrêt de l'appli, tâche annulée) : le CLI ne survit pas avec le jeton
+        if proc.returncode is None:
+            proc.kill()
+        raise
 
     try:
         data = json.loads(out.decode())

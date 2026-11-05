@@ -22,7 +22,7 @@ SECRET_ERROR = "MP_SECRET_KEY manquante ou trop courte (32 caractères minimum)"
 
 CSP = (
     "default-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; "
-    "base-uri 'none'; "
+    "base-uri 'none'; frame-ancestors 'self'; "
     # le srcdoc du lecteur embarque le <style> de l'appli (FRAME_CSS) et hérite de cette CSP ;
     # nh3 retire tout <style> et attribut style des mails
     "style-src 'self' 'unsafe-inline'"
@@ -30,6 +30,7 @@ CSP = (
 SECURITY_HEADERS = {
     "Content-Security-Policy": CSP,
     "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
     "Referrer-Policy": "no-referrer",
     "Strict-Transport-Security": "max-age=31536000",
 }
@@ -72,7 +73,8 @@ def _mount_frontend(app: FastAPI, dist: Path) -> None:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Mail Pilot", lifespan=_lifespan)
+    # pas de /docs, /redoc ni /openapi.json : toute l'API est authentifiée
+    app = FastAPI(title="Mail Pilot", lifespan=_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(CSRFMiddleware)
 
     @app.middleware("http")
@@ -83,8 +85,9 @@ def create_app() -> FastAPI:
         path = request.url.path
         if path.startswith("/assets/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        elif not path.startswith("/api/") and "cache-control" not in response.headers:
-            response.headers["Cache-Control"] = "no-cache"
+        elif "cache-control" not in response.headers:
+            # API : jamais en cache (corps de mails) ; front : revalidation (mises à jour PWA)
+            response.headers["Cache-Control"] = "no-store" if path.startswith("/api/") else "no-cache"
         return response
 
     @app.exception_handler(RequestValidationError)

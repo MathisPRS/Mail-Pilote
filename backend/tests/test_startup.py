@@ -69,3 +69,25 @@ def test_head_on_spa_is_allowed(tmp_path, monkeypatch):
     r = TestClient(create_app()).head("/")
     assert r.status_code == 200
     assert r.headers["cache-control"] == "no-cache"
+
+
+def test_anti_clickjacking_headers():
+    c = TestClient(create_app())
+    for path in ("/api/health", "/", "/login"):
+        h = c.get(path).headers
+        assert "frame-ancestors 'self'" in h["content-security-policy"]
+        assert h["x-frame-options"] == "SAMEORIGIN"
+
+
+def test_api_responses_are_not_cached(auth_client):
+    # corps de mails, réglages : jamais dans le cache HTTP du navigateur (appareil partagé)
+    for path in ("/api/auth/me", "/api/auth/status", "/api/health"):
+        assert auth_client.get(path).headers["cache-control"] == "no-store"
+
+
+def test_openapi_and_docs_not_exposed():
+    """Toute l'API est authentifiée : son schéma et la doc interactive ne sont pas publiés."""
+    c = TestClient(create_app())
+    for path in ("/openapi.json", "/docs", "/redoc", "/docs/oauth2-redirect"):
+        r = c.get(path)
+        assert "openapi" not in r.text.lower() and "swagger" not in r.text.lower(), path

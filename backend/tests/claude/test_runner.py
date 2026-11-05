@@ -123,3 +123,37 @@ async def test_missing_binary(fake_claude, monkeypatch):
     get_settings.cache_clear()
     with pytest.raises(ClaudeError, match="introuvable"):
         await call()
+
+
+def _alive(pid: int) -> bool:
+    try:
+        with open(f"/proc/{pid}/stat") as f:
+            return f.read().split(")")[-1].split()[0] != "Z"  # zombie = déjà mort
+    except FileNotFoundError:
+        return False
+
+
+async def test_cancellation_kills_child_process(fake_claude):
+    """Session annulée (arrêt de l'appli, tâche annulée) : le CLI ne doit pas survivre
+    avec le jeton OAuth dans son environnement."""
+    import asyncio
+
+    d = fake_claude("{}")
+    (d / "fake-claude").write_text(f'#!/bin/sh\necho $$ > "{d}/pid"\nexec sleep 30\n')
+    task = asyncio.create_task(call())
+    for _ in range(100):
+        if (d / "pid").exists() and (d / "pid").read_text().strip():
+            break
+        await asyncio.sleep(0.05)
+    pid = int((d / "pid").read_text())
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    for _ in range(40):
+        if not _alive(pid):
+            break
+        await asyncio.sleep(0.05)
+    alive = _alive(pid)
+    if alive:
+        os.kill(pid, 9)
+    assert not alive

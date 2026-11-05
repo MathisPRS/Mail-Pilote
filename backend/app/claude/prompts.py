@@ -1,10 +1,14 @@
 import re
+import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 TAG = "mail-non-fiable"
 _TAG_RE = re.compile(r"<\s*/?\s*" + TAG, re.IGNORECASE)
-_CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+_LINE_SEP_RE = re.compile(r"[\x0b\x0c\x85\u2028\u2029]")  # sauts de ligne Unicode -> \n
+_CTRL_RE = re.compile(r"[\x00-\x08\x0d-\x1f\x7f-\x9f]")  # contrôles C0 (sauf \t \n) et C1
+# sélecteurs de variante : peuvent porter un texte invisible (« emoji smuggling »)
+_VS_RE = re.compile(r"[\ufe00-\ufe0f\U000e0100-\U000e01ef]")
 
 SYSTEM_PROMPT = """Tu classes les mails de Mathis. Réponds uniquement avec le JSON demandé par le schéma, en français.
 
@@ -32,8 +36,18 @@ La date du jour est donnée au début du message utilisateur : sers-t'en pour r�
 """
 
 
+def _visible(text: str) -> str:
+    """Retire les caractères de format invisibles (catégorie Cf : espaces sans chasse,
+    contrôles bidi, caractères « tag » U+E00xx...) qui permettraient de déguiser une balise
+    ou une consigne cachée."""
+    return "".join(c for c in text if unicodedata.category(c) != "Cf")
+
+
 def clean(text: str) -> str:
-    text = _CTRL_RE.sub("", text or "")
+    # NFKC ramène les sosies (＜, ﹤...) à leur forme ASCII avant la neutralisation des balises
+    text = unicodedata.normalize("NFKC", text or "")
+    text = _LINE_SEP_RE.sub("\n", text)
+    text = _VS_RE.sub("", _visible(_CTRL_RE.sub("", text)))
     return _TAG_RE.sub(r"[balise retirée]", text)
 
 

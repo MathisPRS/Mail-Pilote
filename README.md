@@ -45,6 +45,8 @@ mail.exemple.fr {
 }
 ```
 
+**Crée le compte (premier lancement, sur `localhost`) avant d'activer le reverse proxy** : tant qu'aucun compte n'existe, la page de création est ouverte à quiconque atteint l'appli.
+
 Mets alors `MP_PUBLIC_ORIGIN=https://mail.exemple.fr` dans `.env`. Le cookie de session est `Secure` : HTTPS est obligatoire (sauf `localhost`).
 
 ## Installation sur l'iPhone

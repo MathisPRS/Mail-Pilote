@@ -9,4 +9,9 @@ services:
       - ./data:/data
     ports:
       - "127.0.0.1:8000:8000"
+    # durcissement : aucune capacité Linux, pas d'élévation de privilèges (setuid)
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

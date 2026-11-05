@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -25,8 +26,16 @@ ALLOWED_PUSH_HOSTS = (
 )
 
 
+# Forme stricte avant tout parsing : hôte en [a-z0-9.-] seulement, puis un chemin sans
+# espace, contrôle, antislash ni « # ». Sans cela, urlsplit et urllib3/requests ne voient
+# pas le même hôte (ex. « https://evil.com\.fcm.googleapis.com » -> requests contacte evil.com).
+_ENDPOINT_RE = re.compile(r"https://[A-Za-z0-9.-]+(?::443)?(?:/[A-Za-z0-9\-._~!$&'()*+,;=:@%/?]*)?", re.I)
+
+
 def is_allowed_push_endpoint(url: str) -> bool:
     """Liste blanche anti-SSRF : https, sans identifiants, port 443, hôte d'un service push connu."""
+    if not _ENDPOINT_RE.fullmatch(url):
+        return False
     try:
         parts = urlsplit(url)
         port = parts.port
