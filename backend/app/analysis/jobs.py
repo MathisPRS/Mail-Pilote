@@ -18,7 +18,7 @@ from app.claude.classify import (
     classify_full,
     classify_headers,
 )
-from app.claude.runner import ClaudeAuthError, ClaudeBadOutput, ClaudeRateLimited
+from app.claude.runner import ClaudeAuthError, ClaudeBadOutput, ClaudeError, ClaudeRateLimited
 from app.claude.status import record_claude_failure, record_claude_success
 from app.mail.imap import open_session
 from app.mail.sync import sync_all
@@ -192,6 +192,16 @@ async def _run(db: Session, kind: str, trigger: str) -> AnalysisRun:
             status, error = "queued", str(exc)[:500]
             db.rollback()
             await record_claude_failure(db, exc)
+        except ClaudeError as exc:  # binaire absent, délai dépassé, sortie non JSON…
+            status, error = "queued", str(exc)[:500]
+            db.rollback()
+            await record_claude_failure(db, exc)  # la page Claude n'affiche plus « Connecté »
+            await send_system_alert(
+                db,
+                "Claude injoignable",
+                "L'analyse des mails a échoué : Claude ne répond pas. Les mails seront repris au prochain tri.",
+                "claude-unreachable",
+            )
         except Exception as exc:  # une session ne doit jamais faire tomber le planificateur
             log.exception("session %s en échec", kind)
             status, error = "error", str(exc)[:500]

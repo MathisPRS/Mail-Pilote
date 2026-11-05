@@ -255,3 +255,25 @@ async def test_sync_failure_marks_error(env, monkeypatch):
     # le verrou est libéré
     monkeypatch.setattr(jobs, "sync_all", env.sync_all)
     assert (await jobs.run_light(env.db)).status == "ok"
+
+
+async def test_unreachable_claude_queues_records_failure_and_alerts(env):
+    """Binaire absent, délai dépassé, sortie non JSON… : ClaudeError simple."""
+    from app.claude.runner import ClaudeError
+
+    m = env.add()
+    env.header_errors = [ClaudeError("claude introuvable")]
+    run = await jobs.run_light(env.db)
+    assert run.status == "queued" and "introuvable" in run.error
+    assert len(env.failures) == 1 and type(env.failures[0]) is ClaudeError
+    assert [(t, k) for t, _, k in env.system_alerts] == [("Claude injoignable", "claude-unreachable")]
+    assert refreshed(env.db, m).classified_level == "none"
+
+
+async def test_auth_and_rate_limit_do_not_send_unreachable_alert(env):
+    env.add()
+    env.header_errors = [ClaudeAuthError("expired")]
+    await jobs.run_light(env.db)
+    env.header_errors = [ClaudeRateLimited("limit")]
+    await jobs.run_light(env.db)
+    assert env.system_alerts == [] and len(env.failures) == 2
