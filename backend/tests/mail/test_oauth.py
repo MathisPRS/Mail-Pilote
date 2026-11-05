@@ -117,6 +117,7 @@ def reason(r) -> str:
 
 ERR = "/settings/boxes?oauth=error&reason="
 OK = "/settings/boxes?oauth=ok"
+RECONNECTED = "/settings/boxes?oauth=reconnected"
 
 
 def g_tokens(tokens, email="Me@Gmail.com", access="ya29.ACCESS-1", refresh="1//REFRESH-1", **claims):
@@ -312,7 +313,10 @@ def test_callback_creates_outlook_account(auth_client, oauth_env, tokens, imap_c
     assert (acc.provider, acc.label, acc.color, acc.auth_type) == ("outlook", "Outlook", "#0F6CBD", "oauth")
 
 
-@pytest.mark.parametrize("claims", [{"aud": "autre-client"}, {"iss": "https://evil.example"}])
+@pytest.mark.parametrize("claims", [
+    {"aud": "autre-client"}, {"iss": "https://evil.example"},
+    {"email_verified": False}, {"email_verified": "false"}, {"email_verified": "FALSE"},
+])
 def test_callback_rejects_bad_id_token(auth_client, oauth_env, tokens, imap_checks, started, db, claims):
     _, q = start(auth_client)
     g_tokens(tokens, **claims)
@@ -368,7 +372,8 @@ def test_reconnect_updates_tokens(auth_client, oauth_env, tokens, imap_checks, s
     url, q = start(auth_client, account_id=acc.id)
     assert q["login_hint"] == "me@gmail.com"
     g_tokens(tokens, access="ya29.ACCESS-2", refresh="1//REFRESH-2")
-    assert reason(callback(auth_client, code="c2", state=q["state"])) == OK
+    assert reason(callback(auth_client, code="c2", state=q["state"])) == RECONNECTED
+    assert started == ["light"]  # pas de nouvelle « première analyse » à la reconnexion
     db.expire_all()
     acc = db.query(MailAccount).one()
     assert decrypt(acc.oauth_access_enc) == "ya29.ACCESS-2"
@@ -516,3 +521,30 @@ def test_init_db_adds_columns_to_existing_database(settings):
             assert s.query(OAuthState).count() == 0
     finally:
         db_module.dispose()
+
+
+def test_reconnect_upgrades_password_gmail_box(auth_client, oauth_env, tokens, imap_checks, started, db):
+    acc = MailAccount(provider="gmail", label="Gmail", email="me@gmail.com", imap_host="imap.gmail.com",
+                      username="Login-Alias", secret_enc=encrypt("app-pass"), status="error")
+    db.add(acc)
+    db.commit()
+    _, q = start(auth_client, account_id=acc.id)
+    g_tokens(tokens)
+    assert reason(callback(auth_client, code="c", state=q["state"])) == RECONNECTED
+    db.expire_all()
+    acc = db.get(MailAccount, acc.id)
+    assert (acc.auth_type, acc.username, acc.secret_enc, acc.status) == ("oauth", "me@gmail.com", "", "ok")
+    assert decrypt(acc.oauth_access_enc) == "ya29.ACCESS-1"
+
+
+def test_microsoft_refresh_sends_scope(db, oauth_env, tokens, imap_client):
+    from app.mail.imap import open_session
+
+    acc = _oauth_account(db, provider="outlook", expires_in=timedelta(minutes=1))
+    tokens.push(access_token="NEW-MS", refresh_token="NEW-MS-R", expires_in=3600)
+    open_session(acc)
+    url, form = tokens.requests[0]
+    assert url == "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+    assert form["grant_type"] == "refresh_token" and form["refresh_token"] == "OLD-REFRESH"
+    assert form["scope"] == "openid email offline_access https://outlook.office.com/IMAP.AccessAsUser.All"
+    imap_client.oauth2_login.assert_called_once_with("me@x.com", "NEW-MS")

@@ -88,6 +88,12 @@ describe("Connexion Google / Microsoft", () => {
     expect(await screen.findByText("Boîte ajoutée")).toBeInTheDocument();
   });
 
+  it("return_reconnected_shows_toast", async () => {
+    mockApi({ "GET /api/accounts": [oauthAccount] });
+    renderWithProviders(<App />, "/settings/boxes?oauth=reconnected");
+    expect(await screen.findByText("Boîte reconnectée")).toBeInTheDocument();
+  });
+
   it.each([
     ["duplicate", /déjà configurée/],
     ["mismatch", /même compte/],

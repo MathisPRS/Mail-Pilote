@@ -180,7 +180,11 @@ def exchange_code(p: Provider, code: str, verifier: str) -> Tokens:
 
 
 def refresh(p: Provider, refresh_token: str) -> Tokens:
-    return _token_request(p, {"grant_type": "refresh_token", "refresh_token": refresh_token})
+    data = {"grant_type": "refresh_token", "refresh_token": refresh_token}
+    if p.name == "microsoft":
+        # v2.0 : sans scope, l'access token renouvelé peut ne pas viser outlook.office.com (IMAP)
+        data["scope"] = p.scope
+    return _token_request(p, data)
 
 
 def email_from_id_token(p: Provider, id_token: str) -> str:
@@ -199,7 +203,8 @@ def email_from_id_token(p: Provider, id_token: str) -> str:
     if p.name == "google":
         if iss not in ("https://accounts.google.com", "accounts.google.com"):
             raise OAuthError("id_token_iss")
-        if claims.get("email_verified") is False:
+        verified = claims.get("email_verified")
+        if verified is False or (isinstance(verified, str) and verified.strip().lower() == "false"):
             raise OAuthError("id_token_email")
         email = claims.get("email")
     else:

@@ -13,7 +13,7 @@ import SettingsLayout from "./SettingsLayout";
 
 type Panel = { kind: "password" | "delete"; account: Account } | null;
 
-/** Retour de Google / Microsoft : /settings/boxes?oauth=error&reason=… */
+/** Retour de Google / Microsoft : /settings/boxes?oauth=ok|reconnected|error&reason=… */
 const OAUTH_ERRORS: Record<string, string> = {
   state: "La demande de connexion a expiré. Recommence depuis « Ajouter une boîte mail ».",
   denied: "Connexion annulée : l'accès n'a pas été autorisé.",
@@ -48,8 +48,8 @@ export default function Boxes() {
     const result = params.get("oauth");
     if (!result || handled.current) return;
     handled.current = true;
-    if (result === "ok") {
-      toast("Boîte ajoutée");
+    if (result === "ok" || result === "reconnected") {
+      toast(result === "ok" ? "Boîte ajoutée" : "Boîte reconnectée");
       void client.invalidateQueries({ queryKey: ["accounts"] });
       void client.invalidateQueries({ queryKey: ["boxes"] });
       void client.invalidateQueries({ queryKey: ["runs"] }); // synchro + analyse lancées côté serveur

@@ -70,8 +70,8 @@ def start(
     return {"url": oauth.authorize_url(p, state, verifier, login_hint)}
 
 
-def _redirect(reason: str | None = None) -> RedirectResponse:
-    query = "oauth=ok" if reason is None else f"oauth=error&reason={reason}"
+def _redirect(reason: str | None = None, ok: str = "ok") -> RedirectResponse:
+    query = f"oauth={ok}" if reason is None else f"oauth=error&reason={reason}"
     return RedirectResponse(f"{RETURN_PATH}?{query}", status_code=303)
 
 
@@ -131,7 +131,9 @@ async def callback(
     try:
         await run_in_threadpool(test_oauth_connection, host, port, email, tokens.access_token)
     except MailError:
-        log.warning("connexion IMAP %s refusée pour une nouvelle boîte", p.display)
+        log.warning(
+            "connexion IMAP %s refusée (%s)", p.display, "reconnexion" if acc is not None else "nouvelle boîte"
+        )
         return _redirect("imap")
 
     if acc is None:
@@ -144,13 +146,16 @@ async def callback(
         created = True
     else:
         created = False
+    # reconnexion d'une boîte à mot de passe : XOAUTH2 s'authentifie avec l'adresse e-mail
     acc.auth_type = "oauth"
+    acc.username = email
     acc.secret_enc = ""
     acc.oauth_access_enc = encrypt(tokens.access_token)
     acc.oauth_refresh_enc = encrypt(tokens.refresh_token or "")
     acc.oauth_expires_at = tokens.expires_at
     acc.status, acc.status_message = "ok", None
     db.commit()
-    if created:
-        accounts_routes.start_first_analysis()
+    if not created:
+        return _redirect(ok="reconnected")
+    accounts_routes.start_first_analysis()
     return _redirect()
