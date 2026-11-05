@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { mockApi, setViewportWide } from "../test-fixtures";
@@ -50,11 +50,10 @@ describe("Page Claude", () => {
       "GET /api/claude/status": status,
       "PUT /api/claude/settings": (c) => jsonResponse(c.body),
     });
-    const user = userEvent.setup();
     renderWithProviders(<App />, "/settings/claude");
     const select = await screen.findByLabelText("Me prévenir avant l'expiration");
     expect(select).toHaveValue("7");
-    await user.selectOptions(select, "14");
+    fireEvent.change(select, { target: { value: "14" } });
     await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
     expect(calls.find((c) => c.method === "PUT")!.body).toEqual({ warn_days: 14 });
     expect(await screen.findByText("Réglages enregistrés")).toBeInTheDocument();
