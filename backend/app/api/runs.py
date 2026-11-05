@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -16,6 +17,7 @@ from app.models import AnalysisRun
 
 router = APIRouter(prefix="/api", tags=["runs"], dependencies=[Depends(current_user)])
 
+log = logging.getLogger(__name__)
 _tasks: set[asyncio.Task] = set()
 
 
@@ -34,9 +36,12 @@ def run_dict(r: AnalysisRun | None) -> dict | None:
 
 
 async def _background(kind: str) -> None:
-    with db_module.SessionLocal() as s:
-        runner = jobs.run_light if kind == "light" else jobs.run_full
-        await runner(s, trigger="manual")
+    try:
+        with db_module.SessionLocal() as s:
+            runner = jobs.run_light if kind == "light" else jobs.run_full
+            await runner(s, trigger="manual")
+    except Exception:  # noqa: BLE001 - tâche de fond : journalisée, sans données sensibles
+        log.exception("run %s manuel en échec", kind)
 
 
 def _running(db: Session) -> AnalysisRun | None:

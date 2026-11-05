@@ -58,11 +58,20 @@ def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: Mai
     headers = session.fetch_headers(folder.path, folder.last_uid or 0,
                                     since.date() if since else None)
     known = set(db.scalars(select(Message.uid).where(Message.folder_id == folder.id)))
+    placeholders = {  # lignes déplacées dont l'UID est encore inconnu (uid < 0)
+        m.message_id_header: m for m in db.scalars(
+            select(Message).where(Message.folder_id == folder.id, Message.uid < 0,
+                                  Message.message_id_header.is_not(None)))
+    }
     new_rows: list[Message] = []
     max_uid = folder.last_uid or 0
     for h in headers:
         max_uid = max(max_uid, h.uid)
         if h.uid in known:
+            continue
+        ph = placeholders.pop(h.message_id, None) if h.message_id else None
+        if ph is not None:  # réconciliation : même mail, vrai UID
+            ph.uid = h.uid
             continue
         if first and h.sent_at is not None and _utc(h.sent_at) < since:
             continue
@@ -82,7 +91,8 @@ def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: Mai
         .order_by(Message.uid.desc()).limit(REFRESH_LAST)
     ))
     if recent:
-        flags = session.fetch_flags(folder.path, [m.uid for m in recent])
+        recent = [m for m in recent if m.uid > 0]
+        flags = session.fetch_flags(folder.path, [m.uid for m in recent]) if recent else {}
         for m in recent:
             if m.uid in flags:
                 m.seen, m.flagged = flags[m.uid]

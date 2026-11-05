@@ -50,7 +50,8 @@ def world(db, monkeypatch):
                                seen=kw.get("seen", False))
         m = Message(account_id=account.id, folder_id=folders[(account.id, path)].id, uid=uid,
                     sent_at=BASE + timedelta(minutes=minutes), subject=subject, from_name=from_name,
-                    from_addr="x@y.z", **kw)
+                    from_addr="x@y.z",
+                    message_id_header=fake.messages[path][uid]["message_id"], **kw)
         db.add(m)
         db.commit()
         return m

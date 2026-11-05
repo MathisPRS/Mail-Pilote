@@ -11,7 +11,8 @@ from app.mail.imap import MailSession, RawBody, RawHeader  # noqa: F401
 
 
 class FakeMailSession:
-    def __init__(self, folders=None, uidvalidity: int | dict[str, int] = 1):
+    def __init__(self, folders=None, uidvalidity: int | dict[str, int] = 1, move_returns_uid: bool = True):
+        self.move_returns_uid = move_returns_uid  # False : mime un serveur MOVE sans COPYUID
         self.folders: dict[str, list[str]] = dict(folders or {"INBOX": []})
         self._uidvalidity: dict[str, int] = {}
         for p in self.folders:
@@ -103,7 +104,12 @@ class FakeMailSession:
         self._next_uid[dest_path] += 1
         self.messages[dest_path][new_uid] = msg
         self.moves.append((path, uid, dest_path, new_uid))
-        return new_uid
+        return new_uid if self.move_returns_uid else None
+
+    def find_uid(self, path, message_id):
+        self._hit("find_uid")
+        found = [u for u, m in self.messages[path].items() if m["message_id"] == message_id]
+        return max(found) if found else None
 
     def set_seen(self, path, uid, seen):
         self._hit("set_seen")

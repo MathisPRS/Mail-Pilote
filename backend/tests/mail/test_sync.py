@@ -143,3 +143,20 @@ def test_unexpected_error_is_generic(db):
     assert sync_all(db, open_session=opener) == []
     db.expire_all()
     assert (a.status, a.status_message) == ("error", "Erreur de synchronisation")
+
+
+def test_sync_reconciles_placeholder_row_without_duplicate(db):
+    a = make_account(db)
+    s = FakeMailSession(folders=FOLDERS)
+    uid = s.add_message("INBOX", subject="x", sent_at=ago(1))
+    sync_account(db, a, s)
+    db.commit()
+    m = msgs(db, a)[0]
+    trash = db.scalar(select(Folder).where(Folder.path == "[Gmail]/Corbeille"))
+    s.move("INBOX", uid, "[Gmail]/Corbeille")  # UID de destination inconnu côté appli
+    m.folder_id, m.uid = trash.id, -m.id
+    db.commit()
+    sync_account(db, a, s)
+    rows = msgs(db, a, "[Gmail]/Corbeille")
+    assert len(rows) == 1 and rows[0].id == m.id and rows[0].uid > 0
+    assert rows[0].uid in s.messages["[Gmail]/Corbeille"]

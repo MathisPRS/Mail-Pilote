@@ -106,12 +106,41 @@ def test_read_unread_important_and_undo(auth_client, world):
     assert m.seen is True
 
 
-def test_move_without_new_uid_deletes_local_row(auth_client, world):
-    m = world.add(world.g)
+def test_move_without_copyuid_trash_then_undo_restores(auth_client, world):
     fake = world.fakes[world.g.id]
-    orig = fake.move
-    fake.move = lambda p, u, d: (orig(p, u, d), None)[1]
-    mid = m.id
-    assert _act(auth_client, [m.id], "trash").json()["count"] == 1
+    fake.move_returns_uid = False  # serveur MOVE : pas de COPYUID
+    m = world.add(world.g)
+    inbox, trash = world.folders[(world.g.id, "INBOX")].id, world.folders[(world.g.id, "Trash")].id
+    batch = _act(auth_client, [m.id], "trash").json()["batch_id"]
+    world.db.refresh(m)
+    assert m.folder_id == trash and m.uid > 0 and m.uid in fake.messages["Trash"]
+    r = auth_client.post(f"/api/actions/{batch}/undo")
+    assert r.status_code == 200 and r.json()["count"] == 1
+    world.db.refresh(m)
+    assert m.folder_id == inbox and m.uid in fake.messages["INBOX"] and not fake.messages["Trash"]
+
+
+def test_placeholder_uid_undo_via_message_id(auth_client, world):
+    fake = world.fakes[world.g.id]
+    fake.move_returns_uid = False
+    fake.find_uid = lambda p, mid: None if p == "Trash" else type(fake).find_uid(fake, p, mid)
+    m = world.add(world.g)
+    batch = _act(auth_client, [m.id], "trash").json()["batch_id"]
+    world.db.refresh(m)
+    assert m.folder_id == world.folders[(world.g.id, "Trash")].id and m.uid == -m.id
+    del fake.find_uid  # le serveur retrouve de nouveau le mail
+    assert auth_client.post(f"/api/actions/{batch}/undo").json()["count"] == 1
+    world.db.refresh(m)
+    assert m.folder_id == world.folders[(world.g.id, "INBOX")].id and m.uid > 0
+
+
+def test_undo_when_mail_vanished_409_and_not_marked(auth_client, world):
+    fake = world.fakes[world.g.id]
+    m = world.add(world.g)
+    batch = _act(auth_client, [m.id], "trash").json()["batch_id"]
+    fake.messages["Trash"].clear()  # supprimé côté serveur entre-temps
+    world.db.refresh(m)
+    r = auth_client.post(f"/api/actions/{batch}/undo")
+    assert r.status_code == 409 and r.json()["detail"] == "Ce mail ne peut plus être restauré"
     world.db.expire_all()
-    assert world.db.get(Message, mid) is None
+    assert all(l.undone_at is None for l in world.db.scalars(select(ActionLog)))

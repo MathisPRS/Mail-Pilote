@@ -45,7 +45,14 @@ def _provider_ops(account: MailAccount, ops: list[dict]) -> dict[int, dict]:
             try:
                 new_uid = None
                 if op["kind"] == "move":
-                    new_uid = session.move(op["path"], op["uid"], op["dest"])
+                    uid = op["uid"]
+                    if uid <= 0:  # UID inconnu (déplacement précédent) : retrouvé par Message-ID
+                        uid = op["mid"] and session.find_uid(op["path"], op["mid"])
+                        if not uid:
+                            raise LookupError("mail introuvable")
+                    new_uid = session.move(op["path"], uid, op["dest"])
+                    if new_uid is None and op.get("mid"):  # serveur MOVE sans COPYUID
+                        new_uid = session.find_uid(op["dest"], op["mid"])
                 elif op["kind"] == "seen":
                     session.set_seen(op["path"], op["uid"], op["value"])
                 elif op["kind"] == "flag":
@@ -72,14 +79,12 @@ async def _execute(db: Session, ops_by_account: dict[int, list[dict]]) -> dict[i
 def _apply_move(m: Message, dest: Folder, new_uid: int | None, db: Session) -> None:
     """Après un déplacement réussi : la ligne locale suit le mail (nouveau dossier + nouvel UID).
 
-    Si le serveur ne renvoie pas de nouvel UID, la ligne locale est supprimée : la prochaine
-    synchronisation du dossier de destination réimporte le mail (l'annulation de ce mail
-    n'est alors plus possible depuis l'appli).
+    Le nouvel UID vient de COPYUID ou d'une recherche par Message-ID ; s'il reste inconnu, la ligne
+    garde un UID provisoire négatif (-id) que la synchronisation remplace (sans doublon) et que
+    l'annulation retrouve par Message-ID.
     """
-    if new_uid is None:
-        db.delete(m)
-    else:
-        m.folder_id, m.uid = dest.id, new_uid
+    m.folder_id = dest.id
+    m.uid = new_uid if new_uid is not None else -m.id
 
 
 def _resolve_dest(db: Session, body_action: str, target: str | None, accounts: set[int]) -> dict[int, Folder]:
@@ -133,7 +138,7 @@ async def run_batch(
             if dest is None or dest.id == src.id:
                 continue
             dest_by_msg[m.id] = dest
-            op = {"id": m.id, "kind": "move", "path": src.path, "uid": m.uid, "dest": dest.path}
+            op = {"id": m.id, "kind": "move", "path": src.path, "uid": m.uid, "dest": dest.path, "mid": m.message_id_header}
             prev[m.id] = {"uid": m.uid, "folder_id": src.id}
         elif action in ("read", "unread"):
             op = {"id": m.id, "kind": "seen", "path": src.path, "uid": m.uid, "value": action == "read"}
@@ -208,7 +213,7 @@ def _undo_ops(db: Session, logs: list[ActionLog]):
             cur, orig = db.get(Folder, m.folder_id), db.get(Folder, log.from_folder_id)
             if orig is None or m.folder_id != log.to_folder_id:
                 continue
-            op = {"id": m.id, "kind": "move", "path": cur.path, "uid": m.uid, "dest": orig.path}
+            op = {"id": m.id, "kind": "move", "path": cur.path, "uid": m.uid, "dest": orig.path, "mid": m.message_id_header}
         elif log.action in ("read", "unread"):
             f = db.get(Folder, m.folder_id)
             op = {"id": m.id, "kind": "seen", "path": f.path, "uid": m.uid, "value": prev.get("seen", m.seen)}
@@ -246,8 +251,9 @@ async def undo(batch_id: str, db: Session = Depends(get_db)) -> dict:
             m.flagged = prev.get("flagged", False)
         log.undone_at = now
         count += 1
-    if items and count == 0:
-        raise HTTPException(502, REFUSED)
+    if count == 0:
+        db.rollback()
+        raise HTTPException(409, "Ce mail ne peut plus être restauré")
     for log in pending:  # mails disparus : rien à restaurer, le lot est clos
         if log.undone_at is None and all(log is not i[0] for i in items):
             log.undone_at = now
