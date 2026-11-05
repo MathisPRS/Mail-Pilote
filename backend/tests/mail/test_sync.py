@@ -215,3 +215,42 @@ def test_commits_per_folder(db):
     db.expire_all()
     assert [m.subject for m in msgs(db, a)] == ["kept"]
     assert a.status == "error"
+
+
+def test_messages_gone_from_server_are_removed(db):
+    """Mail supprimé/déplacé ailleurs (autre client) : la ligne locale disparaît (pas de fantôme)."""
+    a = make_account(db)
+    s = FakeMailSession(folders={"INBOX": []})
+    gone = s.add_message("INBOX", subject="gone", sent_at=ago(1))
+    s.add_message("INBOX", subject="kept", sent_at=ago(1))
+    sync_account(db, a, s)
+    placeholder = msgs(db, a)[0]
+    del s.messages["INBOX"][gone]
+    sync_account(db, a, s)
+    assert [m.subject for m in msgs(db, a)] == ["kept"]
+    assert db.get(Message, placeholder.id) is None
+
+
+def test_placeholder_rows_are_not_ghosts(db):
+    """Une ligne à UID provisoire (< 0, déplacement en attente de réconciliation) n'est pas supprimée."""
+    a = make_account(db)
+    s = FakeMailSession(folders={"INBOX": []})
+    s.add_message("INBOX", subject="kept", sent_at=ago(1))
+    sync_account(db, a, s)
+    inbox = db.scalar(select(Folder))
+    db.add(Message(account_id=a.id, folder_id=inbox.id, uid=-99, message_id_header="<x@y>", subject="ph"))
+    db.commit()
+    sync_account(db, a, s)
+    assert sorted(m.subject for m in msgs(db, a)) == ["kept", "ph"]
+
+
+def test_failed_flag_fetch_deletes_nothing(db):
+    a = make_account(db)
+    s = FakeMailSession(folders={"INBOX": []})
+    s.add_message("INBOX", subject="x", sent_at=ago(1))
+    sync_account(db, a, s)
+    s.messages["INBOX"].clear()
+    s.fail_on["fetch_flags"] = MailAuthError("coupure")
+    sync_all(db, open_session=lambda acc: s)
+    db.expire_all()
+    assert [m.subject for m in msgs(db, a)] == ["x"]

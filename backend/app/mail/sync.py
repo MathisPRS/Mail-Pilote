@@ -101,6 +101,12 @@ def _sync_folder(db: Session, account: MailAccount, folder: Folder, session: Mai
         new_rows.append(row)
     folder.last_uid = max_uid
 
+    # mails connus absents de la réponse FETCH (réussie) : supprimés ou déplacés ailleurs par un
+    # autre client -> la ligne locale disparaît (sinon fantôme : badge gonflé, 502 à l'ouverture).
+    # Les lignes à UID provisoire (< 0) ne sont jamais concernées.
+    ghosts = set(recent_uids) - set(flags)
+    if ghosts:
+        db.execute(delete(Message).where(Message.folder_id == folder.id, Message.uid.in_(ghosts)))
     # rafraîchit seen/flagged des 500 derniers messages déjà connus
     if flags:
         for m in db.scalars(select(Message).where(Message.folder_id == folder.id,
