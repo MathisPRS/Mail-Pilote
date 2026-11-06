@@ -78,6 +78,25 @@ describe("Alertes", () => {
     expect(screen.getByRole("switch", { name: "Notification iPhone" })).toHaveAttribute("aria-checked", "false");
   });
 
+  it("alerts_gotify_fields_not_seen_as_login_form", async () => {
+    mockApi({ "GET /api/settings/alerts": { ...alerts, gotify: true } });
+    renderWithProviders(<App />, "/settings/alerts");
+    const url = await screen.findByLabelText("URL du serveur Gotify");
+    const token = screen.getByLabelText("Jeton de l'application Gotify");
+    // un champ type=password fait croire à iOS / aux gestionnaires de mots de passe à un formulaire de connexion
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(token).toHaveAttribute("type", "text");
+    expect(token).toHaveClass("secret-input");
+    for (const el of [url, token]) {
+      expect(el).toHaveAttribute("autocomplete", "off");
+      expect(el).toHaveAttribute("data-1p-ignore");
+      expect(el).toHaveAttribute("data-lpignore", "true");
+    }
+    expect(url).toHaveAttribute("type", "url");
+    expect(screen.getByText("Adresse du serveur Gotify")).toBeInTheDocument();
+    expect(screen.getByText("Jeton d'application (Gotify › Apps)")).toBeInTheDocument();
+  });
+
   it("alerts_gotify_save_and_test", async () => {
     const calls = mockApi({
       "GET /api/settings/alerts": alerts,

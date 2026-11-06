@@ -345,3 +345,7 @@ button, input { font: inherit; color: inherit; }
 
 /* iOS zoome au focus d'un champ < 16 px et décale la page : 16 px minimum partout */
 input, select, textarea { font-size: 16px; }
+
+/* Champs secrets hors formulaire de connexion (jeton Gotify) : masqués sans type=password */
+.secret-input { -webkit-text-security: disc; }
+.field-row .field-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: -4px; }

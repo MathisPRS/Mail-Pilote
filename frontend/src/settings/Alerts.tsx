@@ -113,10 +113,18 @@ export default function Alerts() {
               </Row>
               {draft.gotify && (
                 <div className="field-row">
-                  <input placeholder="URL du serveur (ex. https://gotify.mon-nas.local)" aria-label="URL du serveur Gotify" inputMode="url" autoComplete="off" autoCapitalize="none"
+                  {/* Pas de type=password : iOS et les gestionnaires de mots de passe y verraient un
+                      formulaire de connexion et y injecteraient l'e-mail et le mot de passe de Mail Pilot. */}
+                  <label className="field-label" htmlFor="gotify-url">Adresse du serveur Gotify</label>
+                  <input id="gotify-url" name="gotify-server-url" type="url" placeholder="https://gotify.mon-nas.fr" aria-label="URL du serveur Gotify"
+                    inputMode="url" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    data-1p-ignore="" data-lpignore="true" data-form-type="other"
                     value={draft.gotify_url ?? ""} onChange={(e) => update({ gotify_url: e.target.value })} />
-                  <input type="password" aria-label="Jeton de l'application Gotify" autoComplete="off"
-                    placeholder={draft.gotify_token_set ? "Jeton enregistré (laisse vide pour le garder)" : "Jeton de l'application"}
+                  <label className="field-label" htmlFor="gotify-token">Jeton d'application (Gotify › Apps)</label>
+                  <input id="gotify-token" name="gotify-app-token" type="text" className="secret-input" aria-label="Jeton de l'application Gotify"
+                    autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false}
+                    data-1p-ignore="" data-lpignore="true" data-form-type="other"
+                    placeholder={draft.gotify_token_set ? "Jeton enregistré (laisse vide pour le garder)" : "ex. AbCdEf123456"}
                     value={token} onChange={(e) => { setToken(e.target.value); setDirty(true); }} />
                   <button type="button" className="btn" disabled={dirty || !draft.gotify_token_set || test.isPending} onClick={() => test.mutate()}>
                     Envoyer une notification de test
