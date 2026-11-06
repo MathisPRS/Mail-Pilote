@@ -26,7 +26,7 @@ def test_post_run_returns_202_and_latest(auth_client, db, monkeypatch):
     latest = auth_client.get("/api/runs/latest").json()
     assert latest["full"] is None and latest["next_full_at"] is None and latest["next_light_at"] is None
     assert latest["light"]["status"] in ("running", "ok") and set(latest["light"]) == {
-        "id", "kind", "trigger", "status", "started_at", "finished_at", "mails_count", "error"}
+        "id", "kind", "trigger", "status", "started_at", "finished_at", "mails_count", "error", "step", "total"}
     assert called == ["manual"]
 
 
@@ -87,3 +87,10 @@ def test_gotify_token_never_returned(auth_client, db):
 def test_alerts_validation(auth_client):
     assert auth_client.put("/api/settings/alerts", json={**ALERTS, "quiet_from": "24:00"}).status_code == 422
     assert auth_client.put("/api/settings/alerts", json={**ALERTS, "gotify_url": "ftp://x"}).status_code == 422
+
+
+def test_run_dict_exposes_step_and_total(auth_client, db):
+    db.add(AnalysisRun(kind="full", trigger="manual", status="running", step="classify", total=12, mails_count=4))
+    db.commit()
+    full = auth_client.get("/api/runs/latest").json()["full"]
+    assert (full["step"], full["total"], full["mails_count"]) == ("classify", 12, 4)

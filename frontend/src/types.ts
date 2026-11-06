@@ -45,9 +45,11 @@ export interface BatchResult { batch_id: string; count: number }
 // Runs (Task 11)
 export type RunKind = "light" | "full";
 export type RunStatus = "running" | "ok" | "queued" | "error";
+export type RunStep = "sync" | "bodies" | "classify" | "alerts";
 export interface Run {
   id: number | null; kind: RunKind; trigger: string; status: RunStatus;
   started_at: string | null; finished_at: string | null; mails_count: number; error: string | null;
+  step: RunStep | null; total: number;
 }
 export interface LatestRuns {
   light: Run | null; full: Run | null; next_full_at: string | null; next_light_at: string | null;

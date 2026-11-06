@@ -150,7 +150,7 @@ describe("MailList", () => {
     const calls = mockApi({
       "POST /api/cleanup": { batch_id: "c1", count: 7 },
       "POST /api/actions/c1/undo": { batch_id: "c1", count: 7 },
-      "POST /api/runs": () => jsonResponse({ id: 5, kind: "full", trigger: "manual", status: "running", started_at: null, finished_at: null, mails_count: 0, error: null }, 202),
+      "POST /api/runs": () => jsonResponse({ id: 5, kind: "full", trigger: "manual", status: "running", started_at: null, finished_at: null, mails_count: 0, error: null, step: null, total: 0 }, 202),
     });
     const user = userEvent.setup();
     renderWithProviders(<App />, "/box/all/inbox");
@@ -163,8 +163,8 @@ describe("MailList", () => {
     await user.click(screen.getByRole("button", { name: "Annuler" }));
     await waitFor(() => expect(calls.some((c) => c.path === "/api/actions/c1/undo")).toBe(true));
 
-    await user.click(screen.getByRole("button", { name: "Actions manuelles" }));
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Lancer une analyse/ }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument(); // le panneau reste ouvert après le nettoyage
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /Lancer une analyse/ }));
     expect(calls.find((c) => c.path === "/api/runs")!.body).toEqual({ kind: "full" });
     expect(await screen.findByText("Analyse lancée…")).toBeInTheDocument();
   });

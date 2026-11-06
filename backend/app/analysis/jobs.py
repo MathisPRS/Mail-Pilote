@@ -128,7 +128,16 @@ async def _classify_batches(db, run, items, classify, size, level, by_id) -> Non
         db.commit()
 
 
+def _set_step(db: Session, run: AnalysisRun, step: str, total: int | None = None) -> None:
+    """Publie l'étape en cours (committée : le front la lit en sondant, aucune transaction ne reste ouverte)."""
+    run.step = step
+    if total is not None:
+        run.total = total
+    db.commit()
+
+
 async def _execute(db: Session, kind: str, run: AnalysisRun) -> None:
+    _set_step(db, run, "sync")
     await asyncio.to_thread(_sync_blocking)
     db.expire_all()
     if kind == "light":
@@ -136,6 +145,7 @@ async def _execute(db: Session, kind: str, run: AnalysisRun) -> None:
         by_id = {m.id: m for m in msgs}
         items = [_header_item(m) for m in msgs]
         if items:
+            _set_step(db, run, "classify", len(items))
             await _classify_batches(db, run, items, classify_headers, HEADERS_BATCH, "headers", by_id)
     else:
         cutoff = utcnow() - timedelta(days=FULL_WINDOW_DAYS)
@@ -151,7 +161,10 @@ async def _execute(db: Session, kind: str, run: AnalysisRun) -> None:
             for m in msgs
             if m.needs_body or m.classified_level == "none"
         ]
-        bodies = await asyncio.to_thread(_fetch_bodies_blocking, targets) if targets else {}
+        bodies = {}
+        if targets:
+            _set_step(db, run, "bodies")
+            bodies = await asyncio.to_thread(_fetch_bodies_blocking, targets)
         db.expire_all()
         items = [
             FullItem(m.id, m.from_name or "", m.from_addr or "", m.subject or "",
@@ -159,7 +172,9 @@ async def _execute(db: Session, kind: str, run: AnalysisRun) -> None:
             for m in msgs
         ]
         if items:
+            _set_step(db, run, "classify", len(items))
             await _classify_batches(db, run, items, classify_full, FULL_BATCH, "full", by_id)
+    _set_step(db, run, "alerts")
     await dispatch_alerts(db)
     if kind == "full":
         alerts = get_alerts(db)

@@ -129,8 +129,10 @@ class AnalysisRun(Base):
     status: Mapped[str] = mapped_column(default="running")  # running | ok | queued | error
     started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
-    mails_count: Mapped[int] = mapped_column(default=0)
+    mails_count: Mapped[int] = mapped_column(default=0)  # mails déjà analysés
     error: Mapped[str | None] = mapped_column(Text)
+    step: Mapped[str | None]  # sync | bodies | classify | alerts (étape en cours, pour le suivi)
+    total: Mapped[int] = mapped_column(default=0)  # mails à analyser dans cette session
 
 
 class PushSubscription(Base):

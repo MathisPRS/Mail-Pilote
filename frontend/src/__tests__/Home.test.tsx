@@ -5,7 +5,7 @@ import App from "../App";
 import { mockApi, setViewportWide } from "../test-fixtures";
 import { jsonResponse, renderWithProviders } from "../test-utils";
 
-const RUN = { id: 9, kind: "light", trigger: "manual", status: "ok", started_at: "2026-11-05T07:00:00Z", finished_at: "2026-11-05T07:01:00Z", mails_count: 2, error: null };
+const RUN = { id: 9, kind: "light", trigger: "manual", status: "ok", started_at: "2026-11-05T07:00:00Z", finished_at: "2026-11-05T07:01:00Z", mails_count: 2, error: null, step: null, total: 0 };
 
 describe("Home", () => {
   beforeEach(() => setViewportWide(false));

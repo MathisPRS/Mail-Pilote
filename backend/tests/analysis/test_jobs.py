@@ -277,3 +277,68 @@ async def test_auth_and_rate_limit_do_not_send_unreachable_alert(env):
     env.header_errors = [ClaudeRateLimited("limit")]
     await jobs.run_light(env.db)
     assert env.system_alerts == [] and len(env.failures) == 2
+
+
+def _snapshot_run(env):
+    from sqlalchemy import select
+    from app import db as db_module
+
+    with db_module.SessionLocal() as s:
+        r = s.scalar(select(AnalysisRun).order_by(AnalysisRun.id.desc()))
+        return r.step, r.total, r.mails_count
+
+
+async def test_full_run_exposes_steps_and_total_while_running(env, monkeypatch):
+    steps = []
+    env.add()
+    env.add()
+    env.add(classified_level="headers", needs_body=True)
+    orig_sync, orig_full, orig_dispatch = env.sync_all, env.classify_full, env.dispatch_alerts
+
+    def sync(db, open_session=None):
+        steps.append(_snapshot_run(env))
+        return orig_sync(db, open_session)
+
+    async def full(items):
+        steps.append(_snapshot_run(env))
+        return await orig_full(items)
+
+    async def dispatch(db, now=None):
+        steps.append(_snapshot_run(env))
+        return await orig_dispatch(db, now)
+
+    orig_fetch = jobs._fetch_bodies_blocking
+
+    def fetch(targets):
+        steps.append(_snapshot_run(env))
+        return {}
+
+    monkeypatch.setattr(jobs, "sync_all", sync)
+    monkeypatch.setattr(jobs, "classify_full", full)
+    monkeypatch.setattr(jobs, "dispatch_alerts", dispatch)
+    monkeypatch.setattr(jobs, "_fetch_bodies_blocking", fetch)
+    run = await jobs.run_full(env.db, "manual")
+    assert [s[0] for s in steps] == ["sync", "bodies", "classify", "alerts"]
+    assert steps[2][1] == 3 and steps[2][2] == 0
+    assert steps[3] == ("alerts", 3, 3)
+    assert run.status == "ok" and run.total == 3 and run.mails_count == 3
+
+
+async def test_light_run_steps_skip_bodies(env, monkeypatch):
+    steps = []
+    env.add()
+    orig = env.classify_headers
+
+    async def headers(items):
+        steps.append(_snapshot_run(env))
+        return await orig(items)
+
+    monkeypatch.setattr(jobs, "classify_headers", headers)
+    run = await jobs.run_light(env.db)
+    assert steps == [("classify", 1, 0)]
+    assert run.total == 1 and run.mails_count == 1
+
+
+async def test_light_without_mail_keeps_total_zero(env):
+    run = await jobs.run_light(env.db)
+    assert run.total == 0 and run.mails_count == 0

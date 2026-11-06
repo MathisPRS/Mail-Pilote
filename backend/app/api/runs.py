@@ -32,6 +32,7 @@ def run_dict(r: AnalysisRun | None) -> dict | None:
         "id": r.id, "kind": r.kind, "trigger": r.trigger, "status": r.status,
         "started_at": iso(r.started_at), "finished_at": iso(r.finished_at),
         "mails_count": r.mails_count, "error": r.error,
+        "step": r.step, "total": r.total,
     }
 
 
@@ -75,7 +76,8 @@ async def start_run(body: RunIn, db: Session = Depends(get_db)) -> dict:
     return JSONResponse(  # démarrage non confirmé : le front relira /api/runs/latest
         status_code=202,
         content={"id": None, "kind": body.kind, "trigger": "manual", "status": "running",
-                 "started_at": None, "finished_at": None, "mails_count": 0, "error": None},
+                 "started_at": None, "finished_at": None, "mails_count": 0, "error": None,
+                 "step": None, "total": 0},
     )
 
 
