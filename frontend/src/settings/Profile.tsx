@@ -29,7 +29,7 @@ export default function Profile() {
   const count = accounts.data?.length;
 
   return (
-    <SettingsLayout title="Profil" backLabel="Mails">
+    <SettingsLayout title="Profil" backLabel="Accueil" backTo="/">
       <div className="settings-card user-card">
         <span className="user-avatar" aria-hidden="true">{(name || "M").trim().charAt(0).toUpperCase()}</span>
         <span className="user-text">

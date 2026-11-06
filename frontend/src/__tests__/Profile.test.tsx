@@ -26,6 +26,18 @@ describe("Profil", () => {
     }
   });
 
+  it("profile_back_always_goes_home_even_after_subpages", async () => {
+    mockApi({ "GET /api/accounts": accounts, "GET /api/boxes": [] });
+    const user = userEvent.setup();
+    renderWithProviders(<App />, "/settings");
+    await user.click(await screen.findByRole("button", { name: /Boîtes mail/ }));
+    await user.click(await screen.findByRole("button", { name: /Profil/ }));
+    await user.click(await screen.findByRole("button", { name: /Accueil/ }));
+    expect(screen.queryByRole("heading", { name: "Profil" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Boîtes mail" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Profil et réglages" })).toBeInTheDocument();
+  });
+
   it("profile_navigates_to_subpages", async () => {
     mockApi({ "GET /api/accounts": accounts });
     const user = userEvent.setup();
