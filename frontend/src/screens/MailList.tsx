@@ -7,6 +7,7 @@ import Icon from "../components/Icon";
 import MailRow from "../components/MailRow";
 import PriorityBox from "../components/PriorityBox";
 import { CHIPS, ROLE_LABELS, isPriorityCategory, plural } from "../format";
+import { useDismissOutside } from "../hooks/useLongPress";
 import { useMailActions } from "../hooks/useMailActions";
 import ActionsSheet from "../sheets/ActionsSheet";
 import FolderSheet from "../sheets/FolderSheet";
@@ -83,8 +84,9 @@ export default function MailList({ account, folder, activeId }: Props) {
 
   const tap = (id: number) => {
     if (selecting) setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-    else setExpanded((e) => (e === id ? null : id));
+    else { setExpanded(null); openMail(id); }
   };
+  useDismissOutside(expanded !== null, ".mail-row.expanded", () => setExpanded(null));
 
   const barBtn = (label: string, icon: Parameters<typeof Icon>[0]["name"], onClick: () => void, danger = false) => (
     <button type="button" className={`bar-btn${danger ? " danger" : ""}`} disabled={selectedIds.length === 0} onClick={onClick}>
@@ -166,7 +168,7 @@ export default function MailList({ account, folder, activeId }: Props) {
             expanded={expanded === m.id}
             active={activeId === m.id}
             onTap={() => tap(m.id)}
-            onOpen={() => openMail(m.id)}
+            onToggleActions={() => setExpanded((e) => (e === m.id ? null : m.id))}
             onArchive={() => void act([m.id], "archive")}
             onImportant={() => void act([m.id], "important")}
             onTrash={() => void act([m.id], "trash")}

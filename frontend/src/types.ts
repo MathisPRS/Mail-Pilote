@@ -80,3 +80,16 @@ export interface ClaudeStatus {
 }
 export interface OkDetail { ok: boolean; detail: string }
 export interface ClaudeLoginStart { url: string }
+
+// Activité « Pendant ton absence » (Task 20)
+export interface ActivitySummary {
+  runs: number; analysed: number; important: number; tt: number; ads: number; alerts: number; actions: number;
+}
+export interface ActivityBatch {
+  batch_id: string; action: MessageAction; source: "user" | "app"; at: string; count: number;
+  undone: boolean; messages: Message[];
+}
+export interface Activity {
+  since: string; summary: ActivitySummary; runs: Run[];
+  important: Message[]; tt: Message[]; ads: Message[]; alerts: Message[]; actions: ActivityBatch[];
+}

@@ -2,6 +2,8 @@ import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getAuthStatus } from "./api";
 import { RunWatcher } from "./hooks/useLatestRuns";
+import ActivityMail from "./screens/ActivityMail";
+import ActivityScreen from "./screens/Activity";
 import Home from "./screens/Home";
 import Login from "./screens/Login";
 import MailShell from "./screens/MailShell";
@@ -33,6 +35,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<Home />} />
+        <Route path="/activity" element={<ActivityScreen />} />
+        <Route path="/activity/mail/:id" element={<ActivityMail />} />
         <Route path="/box/:account/:folder/*" element={<MailShell />} />
         <Route path="/mail/:id" element={<MailShell />} />
         <Route path="/settings" element={<Profile />} />

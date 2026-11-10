@@ -1,8 +1,17 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { vi } from "vitest";
 import userEvent from "@testing-library/user-event";
 import App from "../App";
 import { detail, inboxMessages, mockApi, msg, setViewportWide } from "../test-fixtures";
+import { LONG_PRESS_MS } from "../hooks/useLongPress";
 import { jsonResponse, renderWithProviders } from "../test-utils";
+
+async function longPress(el: Element) {
+  fireEvent.pointerDown(el, { clientX: 5, clientY: 5, pointerType: "touch" });
+  await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS));
+  fireEvent.pointerUp(el);
+  fireEvent.click(el, { detail: 1 });
+}
 
 describe("MailList", () => {
   beforeEach(() => setViewportWide(false));
@@ -36,31 +45,91 @@ describe("MailList", () => {
     expect(screen.getByText("Promo ce week-end")).toBeInTheDocument();
   });
 
-  it("list_row_tap_shows_four_actions_and_archives_with_undo", async () => {
-    const calls = mockApi({
-      "POST /api/messages/actions": { batch_id: "b1", count: 1 },
-      "POST /api/actions/b1/undo": { batch_id: "b1", count: 1 },
-    });
-    const user = userEvent.setup();
-    renderWithProviders(<App />, "/box/all/inbox");
-    await user.click(await screen.findByText("Relevé disponible"));
-    for (const n of ["Ouvrir", "Archiver", "Important", "Corbeille"]) {
-      expect(screen.getByRole("button", { name: n })).toBeInTheDocument();
+  it("list_row_long_press_shows_three_actions_and_archives_with_undo", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const calls = mockApi({
+        "POST /api/messages/actions": { batch_id: "b1", count: 1 },
+        "POST /api/actions/b1/undo": { batch_id: "b1", count: 1 },
+      });
+      renderWithProviders(<App />, "/box/all/inbox");
+      const btn = (await screen.findByText("Relevé disponible")).closest("button")!;
+      await longPress(btn);
+      for (const n of ["Archiver", "Important", "Corbeille"]) {
+        expect(screen.getByRole("button", { name: n })).toBeInTheDocument();
+      }
+      expect(screen.queryByRole("button", { name: "Ouvrir" })).not.toBeInTheDocument();
+      // le click qui suit l'appui long n'ouvre pas le mail
+      expect(screen.queryByTitle("Contenu du mail")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Réception" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Archiver" }));
+      await waitFor(() => expect(calls.find((c) => c.path === "/api/messages/actions")?.body).toEqual({ ids: [3], action: "archive" }));
+      expect(await screen.findByText("Archivé")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Annuler" }));
+      await waitFor(() => expect(calls.some((c) => c.path === "/api/actions/b1/undo")).toBe(true));
+    } finally {
+      vi.useRealTimers();
     }
-    await user.click(screen.getByRole("button", { name: "Archiver" }));
-    expect(calls.find((c) => c.path === "/api/messages/actions")!.body).toEqual({ ids: [3], action: "archive" });
-    expect(await screen.findByText("Archivé")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Annuler" }));
-    await waitFor(() => expect(calls.some((c) => c.path === "/api/actions/b1/undo")).toBe(true));
   });
 
-  it("list_row_open_goes_to_reader", async () => {
+  it("list_row_tap_opens_the_mail", async () => {
     mockApi({ "GET /api/messages/3": detail(3, { subject: "Relevé disponible" }) });
     const user = userEvent.setup();
     renderWithProviders(<App />, "/box/all/inbox");
     await user.click(await screen.findByText("Relevé disponible"));
-    await user.click(screen.getByRole("button", { name: "Ouvrir" }));
     expect(await screen.findByTitle("Contenu du mail")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
+  });
+
+  it("list_row_short_press_does_not_expand", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockApi({});
+      renderWithProviders(<App />, "/box/all/inbox");
+      const btn = (await screen.findByText("Relevé disponible")).closest("button")!;
+      fireEvent.pointerDown(btn, { clientX: 5, clientY: 5, pointerType: "touch" });
+      await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS - 100));
+      fireEvent.pointerUp(btn);
+      await act(() => vi.advanceTimersByTimeAsync(500));
+      expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("list_row_long_press_cancelled_by_movement_or_pointercancel", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockApi({});
+      renderWithProviders(<App />, "/box/all/inbox");
+      const btn = (await screen.findByText("Relevé disponible")).closest("button")!;
+      fireEvent.pointerDown(btn, { clientX: 5, clientY: 5, pointerType: "touch" });
+      fireEvent.pointerMove(btn, { clientX: 5, clientY: 30, pointerType: "touch" });
+      await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS + 100));
+      expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
+      fireEvent.pointerDown(btn, { clientX: 5, clientY: 5, pointerType: "touch" });
+      fireEvent.pointerMove(btn, { clientX: 8, clientY: 8, pointerType: "touch" }); // sous 10 px : toléré
+      fireEvent.pointerCancel(btn);
+      await act(() => vi.advanceTimersByTimeAsync(LONG_PRESS_MS + 100));
+      expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("list_row_right_click_and_more_button_toggle_actions", async () => {
+    mockApi({});
+    const user = userEvent.setup();
+    renderWithProviders(<App />, "/box/all/inbox");
+    const btn = (await screen.findByText("Relevé disponible")).closest("button")!;
+    fireEvent.contextMenu(btn);
+    expect(screen.getByRole("button", { name: "Archiver" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions pour Relevé disponible" })); // replie
+    expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Actions pour Relevé disponible" }));
+    expect(screen.getByRole("button", { name: "Archiver" })).toBeInTheDocument();
+    fireEvent.pointerDown(document.body); // toucher ailleurs replie
+    expect(screen.queryByRole("button", { name: "Archiver" })).not.toBeInTheDocument();
   });
 
   it("list_selection_bulk_trash_then_undo", async () => {
@@ -83,6 +152,23 @@ describe("MailList", () => {
     expect(screen.getByRole("button", { name: "Sélectionner" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Annuler" }));
     expect(await screen.findByText("Ce mail ne peut plus être restauré")).toBeInTheDocument();
+  });
+
+  it("list_selection_mode_tap_selects_and_long_press_is_ignored", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mockApi({});
+      renderWithProviders(<App />, "/box/all/inbox");
+      await screen.findByText("Promo ce week-end");
+      fireEvent.click(screen.getByRole("button", { name: "Sélectionner" }));
+      const btn = screen.getByText("Relevé disponible").closest("button")!;
+      await longPress(btn);
+      expect(document.querySelector(".mail-actions")).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Actions pour/ })).not.toBeInTheDocument();
+      expect(btn).toHaveAttribute("aria-pressed", "true"); // le click après appui est un simple coche
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("list_select_all_toggle", async () => {

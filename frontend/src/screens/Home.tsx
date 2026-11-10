@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { apiGet } from "../api";
+import ActivityBox from "../components/ActivityBox";
 import BoxCard from "../components/BoxCard";
 import { ActionsButton, ProfileButton } from "../components/HeaderButtons";
 import Icon from "../components/Icon";
@@ -64,6 +65,7 @@ export default function Home() {
         {next && <span className="muted small">Prochaine analyse à {formatClock(next)}</span>}
       </header>
       <div className="home-body">
+        <ActivityBox />
         {boxes.isPending && <p className="muted pad">Chargement…</p>}
         {boxes.isError && (
           <p className="form-error" role="alert">

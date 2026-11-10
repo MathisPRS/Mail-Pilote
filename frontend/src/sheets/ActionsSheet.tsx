@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "../components/Icon";
+import RunBadge from "../components/RunBadge";
 import Sheet from "../components/Sheet";
 import { formatClock, parseDate, plural } from "../format";
 import { isRunning, useLatestRuns } from "../hooks/useLatestRuns";
@@ -55,9 +56,7 @@ function FinishedStatus({ run }: { run: Run }) {
   return (
     <div className="run-status">
       <span>{head}</span>
-      {run.status === "ok" && <span className="run-badge ok">Terminée</span>}
-      {run.status === "queued" && <span className="run-badge warn">En attente : Claude indisponible, reprise au prochain tri</span>}
-      {run.status === "error" && <span className="run-badge err">Échec{run.error ? ` : ${run.error}` : ""}</span>}
+      <RunBadge run={run} />
     </div>
   );
 }

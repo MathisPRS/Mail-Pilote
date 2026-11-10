@@ -25,7 +25,7 @@ export function RunWatcher() {
   const was = useRef(running);
   useEffect(() => {
     if (was.current && !running) {
-      for (const k of ["boxes", "folders", "messages", "claude-status"]) void qc.invalidateQueries({ queryKey: [k] });
+      for (const k of ["boxes", "folders", "messages", "claude-status", "activity"]) void qc.invalidateQueries({ queryKey: [k] });
     }
     was.current = running;
   }, [running, qc]);

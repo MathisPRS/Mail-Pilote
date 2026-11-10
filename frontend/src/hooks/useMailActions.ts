@@ -24,7 +24,7 @@ export function useMailActions() {
   const toast = useToast();
 
   const refresh = useCallback(
-    () => Promise.all(["messages", "boxes", "folders"].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
+    () => Promise.all(["messages", "boxes", "folders", "activity"].map((k) => qc.invalidateQueries({ queryKey: [k] }))),
     [qc],
   );
 

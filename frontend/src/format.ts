@@ -53,3 +53,15 @@ export const ROLE_LABELS: Record<FolderRole, string> = {
 export const isPriorityCategory = (c: Category | null) => c === "tt" || c === "important" || c === "action";
 
 export const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+
+/** « 08:12 » aujourd'hui, « hier 22:10 », « lundi 08:12 » (< 7 j), sinon « 05/11 08:12 » : pour « depuis … ». */
+export function formatSince(iso: string | null | undefined, now: Date = new Date()): string {
+  if (!valid(iso)) return "";
+  const d = parseDate(iso);
+  const days = Math.round((Date.parse(dayKey(now)) - Date.parse(dayKey(d))) / 86_400_000);
+  const clock = formatClock(iso);
+  if (days <= 0) return clock;
+  if (days === 1) return `hier ${clock}`;
+  if (days < 7) return `${d.toLocaleDateString("fr-FR", { weekday: "long", timeZone: TZ })} ${clock}`;
+  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: TZ })} ${clock}`;
+}

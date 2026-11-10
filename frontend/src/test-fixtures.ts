@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 import { jsonResponse } from "./test-utils";
-import type { BoxSummary, Folder, Message, MessageDetail } from "./types";
+import type { Activity, BoxSummary, Folder, Message, MessageDetail } from "./types";
 
 export function msg(id: number, over: Partial<Message> = {}): Message {
   return {
@@ -9,6 +9,12 @@ export function msg(id: number, over: Partial<Message> = {}): Message {
     category: "info", priority: false, reason: null, summary: null, ...over,
   };
 }
+
+export const emptyActivity: Activity = {
+  since: "2026-11-04T07:00:00Z",
+  summary: { runs: 0, analysed: 0, important: 0, tt: 0, ads: 0, alerts: 0, actions: 0 },
+  runs: [], important: [], tt: [], ads: [], alerts: [], actions: [],
+};
 
 export const boxes: BoxSummary[] = [
   { id: "all", label: "Toutes les boîtes", email: "Vue unifiée de 2 boîtes", color: "#111317", unread: 5,
@@ -54,6 +60,7 @@ export function mockApi(handlers: Record<string, Handler | object>) {
     "GET /api/oauth/providers": { google: false, microsoft: false },
     "GET /api/folders": folders,
     "GET /api/messages": { items: inboxMessages, next_before_id: null },
+    "GET /api/activity": emptyActivity,
   };
   const all = { ...defaults, ...handlers };
   const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
