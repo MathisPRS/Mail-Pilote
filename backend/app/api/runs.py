@@ -22,7 +22,7 @@ _tasks: set[asyncio.Task] = set()
 
 
 class RunIn(BaseModel):
-    kind: Literal["light", "full"]
+    kind: Literal["light", "full", "sync"]
 
 
 def run_dict(r: AnalysisRun | None) -> dict | None:
@@ -39,7 +39,7 @@ def run_dict(r: AnalysisRun | None) -> dict | None:
 async def _background(kind: str) -> None:
     try:
         with db_module.SessionLocal() as s:
-            runner = jobs.run_light if kind == "light" else jobs.run_full
+            runner = {"light": jobs.run_light, "full": jobs.run_full, "sync": jobs.run_sync}[kind]
             await runner(s, trigger="manual")
     except Exception:  # noqa: BLE001 - tâche de fond : journalisée, sans données sensibles
         log.exception("run %s manuel en échec", kind)
@@ -90,6 +90,7 @@ def latest(db: Session = Depends(get_db)) -> dict:
     return {
         "light": run_dict(last("light")),
         "full": run_dict(last("full")),
+        "sync": run_dict(last("sync")),
         "next_full_at": iso(nxt["next_full_at"]),
         "next_light_at": iso(nxt["next_light_at"]),
     }

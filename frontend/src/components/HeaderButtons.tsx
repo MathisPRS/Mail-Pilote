@@ -1,17 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { getMe } from "../api";
-import { isRunning, useLatestRuns } from "../hooks/useLatestRuns";
+import { runningRun, useLatestRuns } from "../hooks/useLatestRuns";
 import Icon from "./Icon";
 
-/** Bouton éclair ; une pastille bleue animée signale qu'une analyse tourne. */
+/** Bouton éclair ; une pastille bleue animée signale qu'une analyse ou une synchronisation tourne. */
 export function ActionsButton({ onClick, subtle = false }: { onClick: () => void; subtle?: boolean }) {
-  const running = isRunning(useLatestRuns().data);
+  const current = runningRun(useLatestRuns().data);
+  const running = current !== null;
   return (
     <button
       type="button"
       className={`round-btn${subtle ? " subtle" : ""}`}
-      aria-label={running ? "Actions, analyse en cours" : "Actions manuelles"}
+      aria-label={running ? `Actions, ${current.kind === "sync" ? "synchronisation" : "analyse"} en cours` : "Actions manuelles"}
       aria-haspopup="dialog"
       onClick={onClick}
     >

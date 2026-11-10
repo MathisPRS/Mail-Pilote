@@ -23,6 +23,7 @@ class Env:
         self.header_errors = []  # exceptions popped per call
         self.full_errors = []
         self.sync_gate = None
+        self.on_sync = None
         acc = MailAccount(provider="imap", label="a", email="a@b.c", imap_host="h", username="u", secret_enc="x")
         db.add(acc)
         db.flush()
@@ -54,6 +55,8 @@ class Env:
         return m
 
     def sync_all(self, db, open_session=None):
+        if self.on_sync:
+            self.on_sync()
         return []
 
     async def classify_headers(self, items):
@@ -345,3 +348,33 @@ async def test_light_run_steps_skip_bodies(env, monkeypatch):
 async def test_light_without_mail_keeps_total_zero(env):
     run = await jobs.run_light(env.db)
     assert run.total == 0 and run.mails_count == 0
+
+
+async def test_sync_only_fetches_and_counts_new_mails(env):
+    env.add(classified_level="headers")
+    env.on_sync = lambda: (env.add(), env.add())
+    run = await jobs.run_sync(env.db)
+    assert run.kind == "sync" and run.trigger == "manual" and run.status == "ok"
+    assert run.mails_count == 2 and run.finished_at is not None
+    assert env.header_calls == [] and env.full_calls == [] and env.successes == 0
+    assert env.dispatched == 0 and env.system_alerts == []
+    assert env.db.query(Message).filter(Message.classified_level == "none").count() == 2  # non classés
+
+
+async def test_sync_joins_running_run(env, monkeypatch):
+    env.add()
+    gate = asyncio.Event()
+    orig = env.classify_headers
+
+    async def slow(items):
+        await gate.wait()
+        return await orig(items)
+
+    monkeypatch.setattr(jobs, "classify_headers", slow)
+    t1 = asyncio.create_task(jobs.run_light(env.db))
+    await asyncio.sleep(0.05)
+    other = await jobs.run_sync(env.db)
+    assert other.kind == "light" and other.status == "running"
+    gate.set()
+    await t1
+    assert env.db.query(AnalysisRun).count() == 1

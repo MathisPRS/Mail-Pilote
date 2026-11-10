@@ -7,12 +7,14 @@ import { useActivity, useMarkSeen } from "../hooks/useActivity";
 import { useDismissOutside } from "../hooks/useLongPress";
 import { useMailActions } from "../hooks/useMailActions";
 import SettingsLayout, { Group } from "../settings/SettingsLayout";
-import type { ActivityBatch, Message, MessageAction } from "../types";
+import type { ActivityBatch, Message, MessageAction, Run } from "../types";
 
 const ACTION_LABEL: Record<MessageAction, string> = {
   trash: "corbeille", archive: "archivés", move: "déplacés", important: "marqués importants",
   read: "lus", unread: "non lus",
 };
+
+const RUN_KIND_LABEL: Record<Run["kind"], string> = { full: "Tri complet", light: "Vérification rapide", sync: "Synchronisation" };
 
 /** Liste de mails réutilisant MailRow : toucher = ouvrir, appui long = actions (comme la liste). */
 function MailRows({ section, mails, expanded, setExpanded }: {
@@ -120,8 +122,8 @@ export default function ActivityScreen() {
               {data.runs.map((r) => (
                 <div key={r.id ?? r.started_at} className="activity-run">
                   <strong>
-                    {formatClock(r.started_at)} · {r.kind === "full" ? "Tri complet" : "Vérification rapide"}
-                    {r.status === "ok" && ` · ${plural(r.mails_count, "mail", "mails")}`}
+                    {formatClock(r.started_at)} · {RUN_KIND_LABEL[r.kind]}
+                    {r.status === "ok" && ` · ${r.kind === "sync" ? plural(r.mails_count, "nouveau mail", "nouveaux mails") : plural(r.mails_count, "mail", "mails")}`}
                   </strong>
                   {r.status === "running" ? <span className="run-badge">En cours</span> : <RunBadge run={r} />}
                 </div>

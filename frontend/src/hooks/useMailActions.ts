@@ -90,5 +90,15 @@ export function useMailActions() {
     }
   }, [qc, toast]);
 
-  return { perform, cleanup, runAnalysis, undo };
+  const runSync = useCallback(async () => {
+    try {
+      await apiSend<Run>("POST", "/api/runs", { kind: "sync" });
+      toast("Synchronisation lancée…");
+      await qc.invalidateQueries({ queryKey: ["runs"] });
+    } catch (e) {
+      toast(errorText(e));
+    }
+  }, [qc, toast]);
+
+  return { perform, cleanup, runAnalysis, runSync, undo };
 }

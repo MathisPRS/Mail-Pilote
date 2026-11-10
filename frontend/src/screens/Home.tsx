@@ -7,7 +7,7 @@ import BoxCard from "../components/BoxCard";
 import { ActionsButton, ProfileButton } from "../components/HeaderButtons";
 import Icon from "../components/Icon";
 import { formatClock, parseDate } from "../format";
-import { isRunning, useLatestRuns } from "../hooks/useLatestRuns";
+import { runningRun, useLatestRuns } from "../hooks/useLatestRuns";
 import ActionsSheet from "../sheets/ActionsSheet";
 import type { BoxSummary, ClaudeStatus, LatestRuns } from "../types";
 
@@ -20,10 +20,11 @@ function ClaudeState() {
       <span className="claude-state warn"><span className="dot" style={{ background: "#C2410C" }} />Claude déconnecté</span>
     );
   }
-  if (isRunning(runs.data)) {
+  const running = runningRun(runs.data);
+  if (running) {
     return (
       <span className="claude-state" role="status">
-        <span className="dot" style={{ background: "#1F6FEB" }} />Analyse en cours…
+        <span className="dot" style={{ background: "#1F6FEB" }} />{running.kind === "sync" ? "Synchronisation…" : "Analyse en cours…"}
       </span>
     );
   }

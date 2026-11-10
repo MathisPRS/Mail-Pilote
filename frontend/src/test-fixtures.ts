@@ -55,7 +55,7 @@ export function mockApi(handlers: Record<string, Handler | object>) {
     "GET /api/auth/status": { setup_done: true, authenticated: true },
     "GET /api/auth/me": { username: "m", display_name: "Mathis" },
     "GET /api/claude/status": { connected: true, last_ok_at: null, last_error: null, token_set_at: null, expires_at: null, days_left: null, warn_days: 7 },
-    "GET /api/runs/latest": { light: null, full: { id: 1, kind: "full", trigger: "schedule", status: "ok", started_at: "2026-11-05T07:00:00Z", finished_at: "2026-11-05T07:01:00Z", mails_count: 3, error: null, step: null, total: 0 }, next_full_at: "2026-11-05T12:00:00Z", next_light_at: null },
+    "GET /api/runs/latest": { light: null, sync: null, full: { id: 1, kind: "full", trigger: "schedule", status: "ok", started_at: "2026-11-05T07:00:00Z", finished_at: "2026-11-05T07:01:00Z", mails_count: 3, error: null, step: null, total: 0 }, next_full_at: "2026-11-05T12:00:00Z", next_light_at: null },
     "GET /api/boxes/summary": boxes,
     "GET /api/oauth/providers": { google: false, microsoft: false },
     "GET /api/folders": folders,

@@ -18,8 +18,59 @@ async function openSheet(user: ReturnType<typeof userEvent.setup>, path = "/box/
   return within(await screen.findByRole("dialog"));
 }
 
+const SYNC = { ...RUN, id: 20, kind: "sync", trigger: "manual", status: "running", step: "sync" };
+const latestSync = (over: object = {}) => ({
+  "GET /api/runs/latest": { light: null, full: null, sync: { ...SYNC, ...over }, next_full_at: null, next_light_at: null },
+});
+
 describe("ActionsSheet suivi", () => {
   beforeEach(() => setViewportWide(false));
+
+  it("sync_row_is_first_and_click_posts_sync_keeping_panel_open", async () => {
+    const calls = mockApi({ ...latest(null), "POST /api/runs": () => jsonResponse({ ...SYNC }, 202) });
+    const user = userEvent.setup();
+    const dialog = await openSheet(user);
+    const rows = dialog.getAllByRole("button").filter((b) => b.classList.contains("action-row"));
+    expect(rows[0]).toHaveTextContent("Synchroniser maintenant");
+    expect(rows[0]).toHaveTextContent("Récupère les nouveaux mails de toutes les boîtes");
+    await user.click(rows[0]);
+    expect(calls.find((c) => c.path === "/api/runs")!.body).toEqual({ kind: "sync" });
+    expect(await screen.findByText("Synchronisation lancée…")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("sync_row_disabled_with_right_text_while_running", async () => {
+    mockApi(latestSync());
+    const dialog = await openSheet(userEvent.setup());
+    const btn = await dialog.findByRole("button", { name: /Synchroniser maintenant/ });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent("Synchronisation en cours…");
+    expect(dialog.getByRole("button", { name: /Lancer une analyse/ })).toBeDisabled();
+    expect(dialog.getByText("Synchronisation")).toBeInTheDocument();
+    expect(dialog.getByText("Récupération des nouveaux mails")).toBeInTheDocument();
+  });
+
+  it("sync_row_says_analysis_in_progress_when_analysis_runs", async () => {
+    mockApi(latest({ step: "classify", total: 3 }));
+    const dialog = await openSheet(userEvent.setup());
+    const btn = await dialog.findByRole("button", { name: /Synchroniser maintenant/ });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveTextContent("Analyse en cours…");
+  });
+
+  it("shows_finished_sync_run", async () => {
+    mockApi(latestSync({ status: "ok", step: null, finished_at: "2026-11-05T07:01:00Z", mails_count: 1 }));
+    const dialog = await openSheet(userEvent.setup());
+    expect(await dialog.findByText("Dernière synchronisation · 08:01 · 1 nouveau mail")).toBeInTheDocument();
+    expect(dialog.getByRole("button", { name: /Synchroniser maintenant/ })).toBeEnabled();
+  });
+
+  it("dot_on_lightning_button_during_sync", async () => {
+    mockApi(latestSync());
+    renderWithProviders(<App />, "/box/all/inbox");
+    const btn = await screen.findByRole("button", { name: "Actions, synchronisation en cours" });
+    expect(btn.querySelector(".run-dot")).not.toBeNull();
+  });
 
   it("stays_open_after_launching_an_analysis", async () => {
     const calls = mockApi({ ...latest(null), "POST /api/runs": () => jsonResponse({ ...RUN, id: 5 }, 202) });

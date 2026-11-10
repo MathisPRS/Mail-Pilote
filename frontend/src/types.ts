@@ -43,7 +43,7 @@ export interface ActionRequest { ids: number[]; action: MessageAction; target_fo
 export interface BatchResult { batch_id: string; count: number }
 
 // Runs (Task 11)
-export type RunKind = "light" | "full";
+export type RunKind = "light" | "full" | "sync";
 export type RunStatus = "running" | "ok" | "queued" | "error";
 export type RunStep = "sync" | "bodies" | "classify" | "alerts";
 export interface Run {
@@ -52,7 +52,7 @@ export interface Run {
   step: RunStep | null; total: number;
 }
 export interface LatestRuns {
-  light: Run | null; full: Run | null; next_full_at: string | null; next_light_at: string | null;
+  light: Run | null; full: Run | null; sync: Run | null; next_full_at: string | null; next_light_at: string | null;
 }
 
 // Settings (Task 11)

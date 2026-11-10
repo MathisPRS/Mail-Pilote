@@ -12,7 +12,7 @@ const RUN = { id: 9, kind: "full", trigger: "schedule", status: "ok", started_at
 const FULL: Activity = {
   since: "2026-11-05T06:00:00Z",
   summary: { runs: 2, analysed: 47, important: 1, tt: 1, ads: 12, alerts: 2, actions: 9 },
-  runs: [RUN, { ...RUN, id: 8, kind: "light", status: "queued", mails_count: 0 }],
+  runs: [RUN, { ...RUN, id: 8, kind: "light", status: "queued", mails_count: 0 }, { ...RUN, id: 7, kind: "sync", mails_count: 3 }],
   important: [msg(11, { subject: "Avis important", category: "important", priority: true })],
   tt: [msg(12, { subject: "Ouverture TT+", category: "tt", priority: true })],
   alerts: [msg(13, { subject: "Alerte envoyée" })],
@@ -83,6 +83,7 @@ describe("Écran /activity", () => {
     expect(screen.getByText("Annulé")).toBeInTheDocument();
     expect(screen.getByText("08:00 · Tri complet · 34 mails")).toBeInTheDocument();
     expect(screen.getByText(/Vérification rapide/)).toBeInTheDocument();
+    expect(screen.getByText("08:00 · Synchronisation · 3 nouveaux mails")).toBeInTheDocument();
     expect(screen.getByText("En attente : Claude indisponible, reprise au prochain tri")).toBeInTheDocument();
   });
 

@@ -1,12 +1,16 @@
 import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiGet } from "../api";
-import type { LatestRuns } from "../types";
+import type { LatestRuns, Run } from "../types";
 
 /** Intervalle de sondage de /api/runs/latest tant qu'une analyse tourne. */
 export const RUN_POLL_MS = 3000;
 
-export const isRunning = (r?: LatestRuns | null) => r?.light?.status === "running" || r?.full?.status === "running";
+/** Session en cours (vérification rapide, tri complet ou synchronisation). */
+export const runningRun = (r?: LatestRuns | null): Run | null =>
+  [r?.light, r?.full, r?.sync].find((x): x is Run => x?.status === "running") ?? null;
+
+export const isRunning = (r?: LatestRuns | null) => runningRun(r) !== null;
 
 /** Derniers runs ; sondés toutes les 3 s tant qu'un run est « running ». */
 export function useLatestRuns() {

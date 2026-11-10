@@ -5,7 +5,7 @@ import logging
 import re
 from datetime import timedelta
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app import db as db_module
@@ -139,8 +139,13 @@ def _set_step(db: Session, run: AnalysisRun, step: str, total: int | None = None
 
 async def _execute(db: Session, kind: str, run: AnalysisRun) -> None:
     _set_step(db, run, "sync")
+    last_id = db.scalar(select(func.max(Message.id))) or 0
     await asyncio.to_thread(_sync_blocking)
     db.expire_all()
+    if kind == "sync":  # récupération seule : ni Claude, ni alertes, ni notification de synthèse
+        run.mails_count = db.scalar(select(func.count(Message.id)).where(Message.id > last_id)) or 0
+        db.commit()
+        return
     if kind == "light":
         msgs = _inbox_messages(db, Message.classified_level == "none")
         by_id = {m.id: m for m in msgs}
@@ -247,3 +252,7 @@ async def run_light(db: Session, trigger: str = "schedule") -> AnalysisRun:
 
 async def run_full(db: Session, trigger: str = "schedule") -> AnalysisRun:
     return await _run(db, "full", trigger)
+
+
+async def run_sync(db: Session, trigger: str = "manual") -> AnalysisRun:
+    return await _run(db, "sync", trigger)

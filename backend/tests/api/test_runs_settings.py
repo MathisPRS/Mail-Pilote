@@ -27,6 +27,7 @@ def test_post_run_returns_202_and_latest(auth_client, db, monkeypatch):
     assert latest["full"] is None and latest["next_full_at"] is None and latest["next_light_at"] is None
     assert latest["light"]["status"] in ("running", "ok") and set(latest["light"]) == {
         "id", "kind", "trigger", "status", "started_at", "finished_at", "mails_count", "error", "step", "total"}
+    assert latest["sync"] is None
     assert called == ["manual"]
 
 
@@ -94,3 +95,49 @@ def test_run_dict_exposes_step_and_total(auth_client, db):
     db.commit()
     full = auth_client.get("/api/runs/latest").json()["full"]
     assert (full["step"], full["total"], full["mails_count"]) == ("classify", 12, 4)
+
+
+def test_post_sync_run_never_calls_claude_and_counts_new_mails(auth_client, db, monkeypatch):
+    from app.models import Folder, MailAccount, Message
+
+    acc = MailAccount(provider="imap", label="a", email="a@b.c", imap_host="h", username="u", secret_enc="x")
+    db.add(acc)
+    db.flush()
+    inbox = Folder(account_id=acc.id, path="INBOX", role="inbox", display_name="INBOX")
+    db.add(inbox)
+    db.commit()
+
+    def fake_sync(s, open_session=None):
+        from app import db as db_module
+
+        with db_module.SessionLocal() as w:
+            for uid in (1, 2, 3):
+                w.add(Message(account_id=acc.id, folder_id=inbox.id, uid=uid))
+            w.commit()
+        return []
+
+    async def boom(*a, **k):
+        raise AssertionError("Claude ne doit pas être appelé")
+
+    monkeypatch.setattr(jobs, "sync_all", fake_sync)
+    monkeypatch.setattr(jobs, "classify_headers", boom)
+    monkeypatch.setattr(jobs, "classify_full", boom)
+    r = auth_client.post("/api/runs", json={"kind": "sync"})
+    assert r.status_code == 202 and r.json()["kind"] == "sync" and r.json()["trigger"] == "manual"
+    import time
+
+    for _ in range(100):
+        latest = auth_client.get("/api/runs/latest").json()["sync"]
+        if latest and latest["status"] != "running":
+            break
+        time.sleep(0.05)
+    assert latest["status"] == "ok" and latest["mails_count"] == 3
+    assert auth_client.get("/api/runs/latest").json()["light"] is None
+
+
+def test_post_sync_when_running_returns_current(auth_client, db):
+    run = AnalysisRun(kind="light", trigger="schedule", status="running")
+    db.add(run)
+    db.commit()
+    r = auth_client.post("/api/runs", json={"kind": "sync"})
+    assert r.status_code == 202 and r.json()["id"] == run.id and r.json()["kind"] == "light"

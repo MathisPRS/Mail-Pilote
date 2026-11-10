@@ -63,6 +63,19 @@ describe("Home", () => {
     expect(await screen.findByText("Analyse en cours…")).toBeInTheDocument();
   });
 
+  it("home_shows_synchronisation_not_analysis_during_sync", async () => {
+    mockApi({ "GET /api/runs/latest": { light: null, full: null, sync: { ...RUN, kind: "sync", status: "running", finished_at: null }, next_full_at: null, next_light_at: null } });
+    renderWithProviders(<App />, "/");
+    expect(await screen.findByText("Synchronisation…")).toBeInTheDocument();
+    expect(screen.queryByText("Analyse en cours…")).not.toBeInTheDocument();
+  });
+
+  it("home_analysed_time_ignores_finished_sync", async () => {
+    mockApi({ "GET /api/runs/latest": { light: null, full: { ...RUN, kind: "full", finished_at: "2026-11-05T07:01:00Z" }, sync: { ...RUN, kind: "sync", finished_at: "2026-11-05T09:00:00Z" }, next_full_at: null, next_light_at: null } });
+    renderWithProviders(<App />, "/");
+    expect(await screen.findByText("Claude · analysé à 08:01")).toBeInTheDocument();
+  });
+
   it("home_polls_running_run_and_refreshes_lists_when_done", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
