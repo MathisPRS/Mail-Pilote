@@ -133,6 +133,7 @@ async def test_light_classifies_and_alerts(env):
     assert (a.classified_level, a.category, a.priority, a.needs_body) == ("headers", "action", True, False)
     assert b.needs_body is True
     assert env.dispatched == 1 and env.successes >= 1
+    assert a.classified_at is not None and b.classified_at is not None
 
 
 async def test_full_fetches_body_only_when_needed(env):
@@ -159,6 +160,8 @@ async def test_full_fetches_body_only_when_needed(env):
         assert refreshed(env.db, m).classified_level == "full"
     assert refreshed(env.db, done).classified_level == "full"
     assert refreshed(env.db, old).classified_level == "none"
+    assert refreshed(env.db, fresh).classified_at is not None
+    assert refreshed(env.db, done).classified_at is None and refreshed(env.db, old).classified_at is None
     assert env.dispatched == 1
 
 

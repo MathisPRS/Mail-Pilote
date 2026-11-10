@@ -17,6 +17,7 @@ class User(Base):
     password_hash: Mapped[str]
     display_name: Mapped[str] = mapped_column(default="")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    activity_seen_at: Mapped[datetime | None] = mapped_column(UTCDateTime)  # « Pendant ton absence » vu jusqu'ici
 
 
 class Session(Base):
@@ -104,6 +105,7 @@ class Message(Base):
     classified_level: Mapped[str] = mapped_column(default="none")  # none | headers | full
     needs_body: Mapped[bool] = mapped_column(default=False)
     alerted_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    classified_at: Mapped[datetime | None] = mapped_column(UTCDateTime)  # dernier classement (en-têtes ou complet)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 

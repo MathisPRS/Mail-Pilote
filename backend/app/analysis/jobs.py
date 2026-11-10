@@ -71,6 +71,7 @@ def _apply(m: Message, c: Classification, level: str) -> None:
     m.tt_date = c.tt_date.isoformat() if c.tt_date else None
     m.needs_body = c.needs_body
     m.classified_level = level
+    m.classified_at = utcnow()
 
 
 def _sync_blocking() -> None:

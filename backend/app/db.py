@@ -83,6 +83,8 @@ ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "oauth_access_enc": "VARCHAR",
         "oauth_expires_at": "DATETIME",
     },
+    "users": {"activity_seen_at": "DATETIME"},
+    "messages": {"classified_at": "DATETIME"},
     "analysis_runs": {
         "step": "VARCHAR",
         "total": "INTEGER NOT NULL DEFAULT 0",
