@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.common import iso, message_dict
@@ -59,7 +59,7 @@ def activity(user: User = Depends(current_user), db: Session = Depends(get_db)) 
     since = user.activity_seen_at or (utcnow() - DEFAULT_WINDOW)
     classified = Message.classified_at >= since
     analysed, _ = _messages(db, classified)
-    n_imp, important = _messages(db, classified, Message.priority.is_(True), Message.category != "tt")
+    n_imp, important = _messages(db, classified, Message.priority.is_(True), or_(Message.category.is_(None), Message.category != "tt"))
     n_tt, tt = _messages(db, classified, Message.category == "tt")
     n_ads, ads = _messages(db, classified, Message.category.in_(("pub", "spam")))
     # « Important » posé par l'utilisateur renseigne alerted_at sans qu'aucune alerte ne parte

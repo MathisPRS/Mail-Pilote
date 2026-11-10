@@ -128,3 +128,9 @@ def test_seen_hides_previous_activity(auth_client, world):
     r = auth_client.get("/api/activity").json()
     assert r["summary"]["ads"] == 0 and r["ads"] == [] and r["actions"] == []
     assert _user(world.db).activity_seen_at is not None
+
+
+def test_priority_without_category_is_important(auth_client, world):
+    m = world.add(world.g, classified_at=_since(1), category=None, priority=True)
+    r = auth_client.get("/api/activity").json()
+    assert m.id in {x["id"] for x in r["important"]}
